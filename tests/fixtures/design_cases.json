@@ -1,0 +1,230 @@
+{
+  "note": "M7 实验设计的确定性样例：缺日插补三方案的期望值与异方差样例。数值由公式手算后回填，不在测试里重算。",
+  "impute": {
+    "complete": {
+      "values": [
+        980,
+        1120,
+        1050,
+        940,
+        1080,
+        1010,
+        1160,
+        960,
+        1030,
+        1100,
+        990,
+        1070,
+        1020,
+        950,
+        1110,
+        1000,
+        1140,
+        970,
+        1050,
+        1090,
+        1010
+      ],
+      "target_lift": "0.08",
+      "alpha": "0.05",
+      "power": "0.80",
+      "budget_days": 30,
+      "baseline_days": 14,
+      "expected": {
+        "missing_days": 0,
+        "sensitive": false,
+        "significance_flip": false,
+        "size_flip": false,
+        "min_days": {
+          "drop": 11,
+          "zero": 11,
+          "mean": 11
+        },
+        "contains_zero": {
+          "drop": false,
+          "zero": false,
+          "mean": false
+        },
+        "interval_low": {
+          "drop": "1652.82",
+          "zero": "1652.82",
+          "mean": "1652.82"
+        },
+        "budget_power": {
+          "drop": "0.9999",
+          "zero": "0.9999",
+          "mean": "0.9999"
+        },
+        "detail": "三种补法结论一致"
+      }
+    },
+    "light": {
+      "values": [
+        980,
+        1120,
+        1050,
+        940,
+        1080,
+        null,
+        1160,
+        960,
+        1030,
+        1100,
+        990,
+        1070,
+        1020,
+        null,
+        1110,
+        1000,
+        1140,
+        970,
+        1050,
+        1090,
+        1010
+      ],
+      "target_lift": "0.08",
+      "alpha": "0.05",
+      "power": "0.80",
+      "budget_days": 30,
+      "baseline_days": 14,
+      "expected": {
+        "missing_days": 2,
+        "sensitive": true,
+        "significance_flip": true,
+        "size_flip": true,
+        "min_days": {
+          "drop": 11,
+          "zero": 154,
+          "mean": 10
+        },
+        "contains_zero": {
+          "drop": false,
+          "zero": true,
+          "mean": false
+        },
+        "interval_low": {
+          "drop": "1674.81",
+          "zero": "-1894.81",
+          "mean": "1717.67"
+        },
+        "budget_power": {
+          "drop": "1.0000",
+          "zero": "0.1876",
+          "mean": "1.0000"
+        },
+        "detail": "区间是否含 0 因补法而变"
+      }
+    },
+    "sparse": {
+      "values": [
+        980,
+        1120,
+        null,
+        940,
+        1080,
+        null,
+        1160,
+        960,
+        null,
+        1100,
+        990,
+        null,
+        1020,
+        950,
+        null,
+        1000,
+        1140,
+        null,
+        1050,
+        null,
+        1010
+      ],
+      "target_lift": "0.08",
+      "alpha": "0.05",
+      "power": "0.80",
+      "budget_days": 30,
+      "baseline_days": 14,
+      "expected": {
+        "missing_days": 7,
+        "sensitive": true,
+        "significance_flip": true,
+        "size_flip": true,
+        "min_days": {
+          "drop": 13,
+          "zero": null,
+          "mean": 10
+        },
+        "contains_zero": {
+          "drop": false,
+          "zero": true,
+          "mean": false
+        },
+        "interval_low": {
+          "drop": "1536.19",
+          "zero": "-4892.08",
+          "mean": "1720.19"
+        },
+        "budget_power": {
+          "drop": "0.9992",
+          "zero": "0.0786",
+          "mean": "1.0000"
+        },
+        "detail": "区间是否含 0 因补法而变"
+      }
+    }
+  },
+  "hetero": {
+    "prices": [
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21
+    ],
+    "qtys": [
+      1500,
+      891.9259,
+      803.4938,
+      729.9078,
+      667.7999,
+      614.7386,
+      568.9263,
+      529.0068,
+      493.9386,
+      462.9091,
+      435.2753,
+      205.2612
+    ],
+    "expected": {
+      "n": 12,
+      "slope": "-1.818232",
+      "se_naive": "0.247911",
+      "se_hc1": "0.332562",
+      "ratio": "1.3415",
+      "variance_factor": "1.7995",
+      "hetero": 1,
+      "cv": 0.09,
+      "target_lift": 0.1,
+      "days_naive": 14,
+      "days_robust": 20
+    }
+  },
+  "power": {
+    "k_alpha_005_power_080": "2.8016",
+    "z_975": "1.959964",
+    "z_080": "0.841621",
+    "cv": 0.128,
+    "baseline_days": 14,
+    "days_target_005": 63,
+    "days_target_010": 22,
+    "power_at_30": "0.8113",
+    "mde_at_42": "0.0794"
+  }
+}

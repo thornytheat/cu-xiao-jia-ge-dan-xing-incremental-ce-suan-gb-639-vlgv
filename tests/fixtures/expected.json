@@ -1,0 +1,50 @@
+{
+  "sample_data": {
+    "daily_sales_gb18030.csv": {
+      "bytes": 24922,
+      "sha256": "524faeafe9b474cf4df45bd4e0ca7b79095f28e46632976062d9c30f9f2392f9",
+      "encoding": "gb18030",
+      "records": 377
+    },
+    "daily_sales_utf8bom.csv": {
+      "bytes": 1364,
+      "sha256": "18f9791faeeb695b375a7e34f41851f6666876373e37c1c6dd43e70a9a276fd9",
+      "encoding": "utf-8",
+      "records": 15,
+      "dup_header": 1,
+      "physical_lines": 18
+    },
+    "promo_calendar.csv": {
+      "bytes": 517,
+      "sha256": "1d15519c062b894433d13775a91d05e1a4b503ab92a16bc27f7d7cf5ad42016a",
+      "versions": 6,
+      "promo_ids": 4
+    },
+    "control_group.csv": {
+      "bytes": 6611,
+      "sha256": "0a3c2aa74508ea6aa891cefe5bd10110b55df66d623710426a4318c9f04a02be"
+    },
+    "truncated_tail.csv": {
+      "bytes": 1292,
+      "sha256": "17ae560257d841f1e8443f714e9cc3403612c82cf3178d9fd9085fbfdf8d0796"
+    }
+  },
+  "pipeline": {
+    "rows_ok": 369,
+    "rows_bad": 8,
+    "promos_total": 4,
+    "promos_measured": 2,
+    "promos_blocked": 1,
+    "promos_pending": 1,
+    "days_expected": 34,
+    "days_valid": 32,
+    "days_missing": 1,
+    "days_dropped": 1,
+    "lift_gmv": "6685.74",
+    "grade": "B",
+    "coverage": "0.9412",
+    "no_price_variation_groups": 8,
+    "missing_day": "2026-10-18",
+    "dup_day": "2026-10-14"
+  }
+}

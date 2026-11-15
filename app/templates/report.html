@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}报告{% endblock %}
+{% block heading %}促销增量报告{% endblock %}
+
+{% block main %}
+{% if payload %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">结论</h2>
+    <p class="section-figure">{{ payload.batch_id }}</p>
+  </div>
+  <dl class="verdict">
+    <div class="verdict-cell">
+      <dt class="verdict-key">已测算</dt>
+      <dd class="verdict-value">{{ payload.totals.promos_measured or 0 }}<small>/ {{ payload.totals.promos_total or 0 }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">增量</dt>
+      <dd class="verdict-value">{{ payload.totals.lift_gmv | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">弹性</dt>
+      <dd class="verdict-value">{{ payload.headline.slope if payload.headline else "—" }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">覆盖</dt>
+      <dd class="verdict-value">{{ payload.totals.coverage | pct }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">质量等级</dt>
+      <dd class="verdict-value">{{ payload.totals.grade or "—" }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">账目</dt>
+      <dd class="verdict-value">{{ "平" if payload.balanced else "不平" }}</dd>
+    </div>
+    <p class="verdict-note">
+      严重 {{ payload.totals.quarantine_error or 0 }} 条 · 警告 {{ payload.totals.quarantine_warn or 0 }} 条 · 提示 {{ payload.totals.quarantine_info or 0 }} 条
+    </p>
+  </dl>
+  <div class="actions">
+    <a class="btn" href="/api/export?kind=lift">导出增量</a>
+    <a class="btn btn-ghost" href="/api/export?kind=reconcile">导出账目</a>
+    <a class="btn btn-ghost" href="/api/export?kind=elastic">导出弹性</a>
+    <a class="btn btn-ghost" href="/api/export?kind=manifest&amp;fmt=json">导出清单</a>
+    <a class="btn btn-ghost" href="/quarantine">看隔离区</a>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">账目核对</h2>
+    <p class="section-figure">{{ payload.reconcile | length }} 项 · 差额全部为 0 才算平</p>
+  </div>
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>账目</th><th class="num">左值</th><th class="num">右值</th><th class="num">差额</th><th>结论</th><th>规则</th></tr>
+      </thead>
+      <tbody>
+        {% for row in payload.reconcile %}
+        <tr>
+          <td>{{ row.account }}</td>
+          <td class="num">{{ row.left }}</td>
+          <td class="num">{{ row.right }}</td>
+          <td class="num {{ 'is-neg' if row.delta | float < 0 else '' }}">{{ row.delta }}</td>
+          <td><span class="tag {{ 'tag-ok' if row.ok else 'tag-error' }}">{{ row.verdict }}</span></td>
+          <td class="trunc" title="{{ row.note }}">{{ row.note }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">指标</h2>
+    <p class="section-figure">{{ payload.window[0] if payload.window else "—" }} ~ {{ payload.window[1] if payload.window else "—" }}</p>
+  </div>
+  <ul class="rulelist">
+    <li><dt>数据记录</dt><dd>{{ payload.totals.records_total }} 条 · 入模 {{ payload.totals.rows_ok }} · 剔除 {{ payload.totals.rows_bad }}</dd></li>
+    <li><dt>促销天数</dt><dd>{{ payload.totals.days_expected }} 天 · 有效 {{ payload.totals.days_valid }} · 缺日 {{ payload.totals.days_missing }} · 剔除 {{ payload.totals.days_dropped }}</dd></li>
+    <li><dt>促销</dt><dd>{{ payload.totals.promos_total }} 个 · 已测算 {{ payload.totals.promos_measured }} · 阻断 {{ payload.totals.promos_blocked }} · 未生效 {{ payload.totals.promos_pending }}</dd></li>
+    <li><dt>实际销售额</dt><dd>{{ payload.totals.actual_gmv | money }} {{ money_unit }}</dd></li>
+    <li><dt>基线销售额</dt><dd>{{ payload.totals.base_gmv | money }} {{ money_unit }}</dd></li>
+    <li><dt>增量销售额</dt><dd>{{ payload.totals.lift_gmv | money }} {{ money_unit }}</dd></li>
+    <li><dt>分摊合计</dt><dd>{{ payload.totals.spread_total | money }} {{ money_unit }}</dd></li>
+    <li><dt>覆盖</dt><dd>{{ payload.totals.coverage | pct }} · 数据错误 {{ payload.totals.quarantine_error }} 条</dd></li>
+  </ul>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">原因码</h2>
+    <p class="section-figure">{{ payload.distribution | length }} 类 · {{ payload.distribution | sum(attribute="count") if payload.distribution else 0 }} 条</p>
+  </div>
+  {% if payload.distribution %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>原因码</th><th>级别</th><th class="num">条数</th><th>结论</th></tr>
+      </thead>
+      <tbody>
+        {% for row in payload.distribution %}
+        <tr>
+          <td>{{ row.code }}</td>
+          <td><span class="tag tag-{{ 'error' if row.level == 'error' else ('warn' if row.level == 'warn' else 'info') }}">{{ row.level_label }}</span></td>
+          <td class="num">{{ row.count }}</td>
+          <td class="trunc" title="{{ row.title }}">{{ row.title }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">没有隔离记录。</p>
+  {% endif %}
+</section>
+
+{% if manifest %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">运行清单</h2>
+    <p class="section-figure">{{ manifest.run_id }}</p>
+  </div>
+  <ul class="rulelist">
+    <li><dt>输入摘要</dt><dd>{{ manifest.input_digest[:32] }}</dd></li>
+    <li><dt>规则版本</dt><dd>{{ manifest.rule_version }} · 0 销量 {{ manifest.zero_mode }}</dd></li>
+    <li><dt>耗时</dt><dd>{{ manifest.elapsed_ms }} ms</dd></li>
+    <li><dt>批次键</dt><dd>{{ manifest.batch_key[:32] }}</dd></li>
+    {% for item in manifest.inputs %}
+    <li><dt>{{ item.name }}</dt><dd>{{ item.sha256[:24] }} · {{ item.bytes }} B · {{ item.encoding }}</dd></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% else %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">结论</h2>
+  </div>
+  <p class="empty">还没有批次。</p>
+  <div class="actions">
+    <a class="btn" href="/">去导入</a>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,95 @@
+/* print.css — 报告打印：去掉导航与交互元件，显示页码与落款 */
+
+@media print {
+  :root {
+    --pad: 0;
+    --gap: 14px;
+    --stack: 20px;
+    --step-1: 22px;
+    --step-2: 16px;
+    --step-4: 11.5px;
+    --step-5: 10.5px;
+    --step-6: 9.5px;
+  }
+
+  html,
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .tabs,
+  .actions,
+  .form,
+  .form-note,
+  details.evidence summary {
+    display: none !important;
+  }
+
+  .masthead {
+    border-top: 2px solid #000;
+    padding: 0 0 8px;
+  }
+
+  .body {
+    padding: 12px 0 0;
+  }
+
+  .masthead-inner,
+  .tabs-inner,
+  .body-inner,
+  .colophon-inner {
+    max-width: none;
+  }
+
+  .section {
+    page-break-inside: avoid;
+    border-top: 1px solid #999;
+  }
+
+  .verdict {
+    border-bottom: 1.5px solid #000;
+  }
+
+  table.grid thead th {
+    position: static;
+    background: #fff;
+    border-bottom: 1px solid #000;
+  }
+
+  table.grid tbody td {
+    border-bottom: 1px solid #ddd;
+  }
+
+  .chart {
+    page-break-inside: avoid;
+  }
+
+  .chart-bar {
+    background: #555 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .tag {
+    border-color: #666;
+    color: #000;
+  }
+
+  .colophon {
+    border-top: 1px solid #000;
+    padding: 8px 0 0;
+  }
+
+  .colophon::after {
+    content: "— 第 " counter(page) " 页 —";
+    display: block;
+    margin-top: 6px;
+    text-align: center;
+    font-size: 9pt;
+  }
+
+  a[href]::after {
+    content: "";
+  }
+}

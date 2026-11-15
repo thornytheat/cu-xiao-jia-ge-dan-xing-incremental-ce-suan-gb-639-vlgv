@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}增量{% endblock %}
+{% block heading %}促销增量测算{% endblock %}
+
+{% block main %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">本期结论</h2>
+    <p class="section-figure">{{ lift | length }} 个促销 · 基线窗 {{ baseline_window }} 天</p>
+  </div>
+  <dl class="verdict">
+    <div class="verdict-cell">
+      <dt class="verdict-key">实际销售额</dt>
+      <dd class="verdict-value">{{ totals.actual_gmv | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">基线销售额</dt>
+      <dd class="verdict-value">{{ totals.base_gmv | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">增量</dt>
+      <dd class="verdict-value">{{ totals.lift_gmv | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">增量销量</dt>
+      <dd class="verdict-value">{{ totals.lift_qty | qty }}<small>{{ qty_unit }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">渠道分摊合计</dt>
+      <dd class="verdict-value">{{ totals.spread_total | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">已测算</dt>
+      <dd class="verdict-value">{{ totals.promos_measured or 0 }}<small>/ {{ totals.promos_total or 0 }}</small></dd>
+    </div>
+    <p class="verdict-note">阻断 {{ totals.promos_blocked or 0 }} 个 · 未生效 {{ totals.promos_pending or 0 }} 个 · 缺日 {{ totals.days_missing or 0 }} 天</p>
+  </dl>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">重算</h2>
+    {% if batch %}<p class="section-figure">{{ batch.batch_key[:12] }}</p>{% endif %}
+  </div>
+  <form class="form" data-endpoint="/api/lift" data-method="POST" data-redirect="/lift">
+    <label class="field">
+      <span>样例集</span>
+      <select name="dataset">
+        {% for key, spec in datasets.items() %}
+        <option value="{{ key }}"{% if batch and batch.dataset == key %} selected{% endif %}>{{ key }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span>0 销量处理</span>
+      <select name="zero_mode">
+        <option value="shift"{% if settings.zero_mode == "shift" %} selected{% endif %}>shift</option>
+        <option value="drop"{% if settings.zero_mode == "drop" %} selected{% endif %}>drop</option>
+      </select>
+    </label>
+    <div class="actions">
+      <button class="btn" type="submit">重跑</button>
+    </div>
+  </form>
+  <p class="form-note" hidden></p>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">增量明细</h2>
+    <p class="section-figure">区间按 95% 置信水平</p>
+  </div>
+  {% if lift %}
+  <div class="table-wrap">
+    <table class="grid" data-sortable>
+      <thead>
+        <tr><th>促销编号</th><th>商品</th><th>渠道</th><th>区间</th><th class="num">天数</th><th class="num">有效</th><th class="num">实际销量</th><th class="num">基线销量</th><th class="num">实际销售额</th><th class="num">基线销售额</th><th class="num">增量</th><th class="num">区间下限</th><th class="num">区间上限</th><th>结论</th></tr>
+      </thead>
+      <tbody>
+        {% for row in lift %}
+        <tr>
+          <td>{{ row.promo_id }}</td>
+          <td>{{ row.sku }}</td>
+          <td>{{ row.channel }}</td>
+          <td>{{ row.start_date }} → {{ row.end_date }}</td>
+          <td class="num">{{ row.days }}</td>
+          <td class="num">{{ row.days_valid }}</td>
+          <td class="num">{{ row.actual_qty | qty }}</td>
+          <td class="num">{{ row.base_qty | qty }}</td>
+          <td class="num">{{ row.actual_gmv | money }}</td>
+          <td class="num">{{ row.base_gmv | money }}</td>
+          <td class="num {{ 'is-neg' if row.lift_gmv | float < 0 else 'is-pos' }}">{{ row.lift_gmv | money }}</td>
+          <td class="num">{{ row.ci_low | money }}</td>
+          <td class="num">{{ row.ci_high | money }}</td>
+          <td><span class="tag {{ 'tag-ok' if row.note == '区间不含 0' else 'tag-warn' }}">{{ row.note }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="8">合计</td>
+          <td class="num">{{ totals.actual_gmv | money }}</td>
+          <td class="num">{{ totals.base_gmv | money }}</td>
+          <td class="num">{{ totals.lift_gmv | money }}</td>
+          <td colspan="3" class="num">平账见报告</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有测算结果。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">渠道分摊</h2>
+    <p class="section-figure">按实际销售额占比</p>
+  </div>
+  {% if spread %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>促销编号</th><th>渠道</th><th class="num">占比</th><th class="num">实际销售额</th><th class="num">分摊增量</th></tr>
+      </thead>
+      <tbody>
+        {% for promo_id, rows in spread.items() %}
+        {% for row in rows %}
+        <tr>
+          <td>{{ promo_id }}</td>
+          <td>{{ row.channel }}</td>
+          <td class="num">{{ row.ratio | pct }}</td>
+          <td class="num">{{ row.actual_gmv | money }}</td>
+          <td class="num {{ 'is-neg' if row.lift_gmv | float < 0 else 'is-pos' }}">{{ row.lift_gmv | money }}</td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有分摊结果。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">批次</h2>
+    <p class="section-figure">{{ batches | length }} 次</p>
+  </div>
+  {% if batches %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>批次号</th><th>样例集</th><th>状态</th><th>创建时间</th></tr>
+      </thead>
+      <tbody>
+        {% for item in batches %}
+        <tr>
+          <td><a href="/lift?batch_id={{ item.batch_id }}">{{ item.batch_id }}</a></td>
+          <td>{{ item.dataset }}</td>
+          <td>{{ item.status | status }}</td>
+          <td>{{ item.created_at | shortdt }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有批次。</p>
+  {% endif %}
+</section>
+{% endblock %}

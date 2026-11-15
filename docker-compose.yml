@@ -1,0 +1,23 @@
+services:
+  app:
+    build: .
+    image: pricelift:local
+    environment:
+      PRICELIFT_DB: /data/pricelift.sqlite
+      PRICELIFT_SAMPLE_DIR: /app/sample_data
+      PRICELIFT_EXPORT_DIR: /data/export
+      PRICELIFT_ZERO_MODE: shift
+      TZ: Asia/Shanghai
+    ports:
+      - "18208:8000"
+    volumes:
+      - pricelift-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://127.0.0.1:8000/healthz', timeout=2.0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+
+volumes:
+  pricelift-data:

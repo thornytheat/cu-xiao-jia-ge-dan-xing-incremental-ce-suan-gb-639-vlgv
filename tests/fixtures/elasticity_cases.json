@@ -1,0 +1,25 @@
+{
+  "_source": "numpy.polyfit + 手写标准误独立计算，用于对照 app/modules/m4_elastic/ols.py",
+  "prices": ["10.00", "11.00", "12.00", "13.00", "14.00", "15.00", "16.00"],
+  "qtys": [200, 188, 176, 166, 156, 146, 138],
+  "shift_point": {
+    "n": 7,
+    "intercept": "7.132436",
+    "slope": "-0.790590",
+    "se": "0.022416",
+    "tvalue": "-35.2691",
+    "r2": "0.9960"
+  },
+  "naive_uncentered_slope": "1.992862",
+  "zero_shifted": {
+    "n": 7,
+    "slope": "4.578833",
+    "tvalue": "0.8439",
+    "significant": false
+  },
+  "zero_dropped": {
+    "n": 6,
+    "slope": "-0.789915",
+    "se": "0.027294"
+  }
+}

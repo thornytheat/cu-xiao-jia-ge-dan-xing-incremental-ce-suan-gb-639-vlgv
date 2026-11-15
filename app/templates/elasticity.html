@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}弹性{% endblock %}
+{% block heading %}价格弹性估计{% endblock %}
+
+{% block main %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">本期结论</h2>
+    <p class="section-figure">{{ sku_rows | length }} 个商品 · {{ channel_rows | length }} 个渠道</p>
+  </div>
+  <dl class="verdict">
+    <div class="verdict-cell">
+      <dt class="verdict-key">全渠道弹性</dt>
+      <dd class="verdict-value">{{ head.slope if head else "—" }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">t 值</dt>
+      <dd class="verdict-value">{{ head.tvalue if head else "—" }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">R²</dt>
+      <dd class="verdict-value">{{ head.r2 if head else "—" }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">样本数</dt>
+      <dd class="verdict-value">{{ head.n if head else 0 }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">0 销量处理</dt>
+      <dd class="verdict-value">{{ "平移" if zero_mode == "shift" else "剔除" }}</dd>
+    </div>
+    <p class="verdict-note">{{ head.note if head else "还没有弹性结果" }} · 显著性门槛 |t| ≥ {{ significance_t }}</p>
+  </dl>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">按商品</h2>
+    <p class="section-figure">{{ bar_rows | length }} 组可估计 · {{ blocked_groups }} 组无价格变化</p>
+  </div>
+  {% if bar_rows %}
+  <div class="chart" role="group" aria-label="按商品的价格弹性">
+    {% for bar in bar_rows %}
+    <button class="chart-col" type="button"
+            data-significant="{{ 1 if bar.significant else 0 }}"
+            data-label="{{ bar.label }}"
+            data-slope="{{ bar.slope }}"
+            data-r2="{{ bar.r2 }}"
+            data-note="{{ bar.note }}"
+            title="{{ bar.label }} 弹性 {{ bar.slope }} · R² {{ bar.r2 }}">
+      <span class="chart-value">{{ bar.slope }}</span>
+      <span class="chart-bar" style="height: {{ bar.height }}%"></span>
+      <span class="chart-label">{{ bar.label }}</span>
+    </button>
+    {% endfor %}
+  </div>
+  <p class="chart-axis"><span>柱高 = |弹性| 归一</span><span>深色 = 显著</span></p>
+  <div class="actions">
+    <button class="btn btn-ghost" type="button" data-chart-toggle>只看显著</button>
+  </div>
+  <p class="chart-readout"></p>
+  {% else %}
+  <p class="empty">还没有可按商品估计的样本。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">全部估计</h2>
+    <p class="section-figure">{{ rows | length }} 行</p>
+  </div>
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="grid" data-sortable>
+      <thead>
+        <tr><th>范围</th><th>分组</th><th class="num">样本</th><th class="num">0 销量</th><th class="num">截距</th><th class="num">弹性</th><th class="num">标准误</th><th class="num">t 值</th><th class="num">R²</th><th>结论</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.scope }}</td>
+          <td>{{ row.group_key }}</td>
+          <td class="num">{{ row.n }}</td>
+          <td class="num">{{ row.zero_count }}</td>
+          <td class="num">{{ row.intercept }}</td>
+          <td class="num {{ 'is-neg' if row.slope | float < 0 else 'is-pos' }}">{{ row.slope }}</td>
+          <td class="num">{{ row.se }}</td>
+          <td class="num">{{ row.tvalue }}</td>
+          <td class="num">{{ row.r2 }}</td>
+          <td><span class="tag {{ 'tag-ok' if row.significant else 'tag-warn' }}">{{ row.note }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有估计结果。</p>
+  {% endif %}
+</section>
+{% endblock %}

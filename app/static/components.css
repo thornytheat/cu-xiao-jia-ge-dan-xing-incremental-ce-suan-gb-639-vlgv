@@ -1,0 +1,487 @@
+/* components.css — 结论条、严重度横条、指标表、CSS 柱图、表单、状态标签
+   表格只有细横线；状态一律文字标签，不用彩色药丸。 */
+
+/* ---------- 结论条：一行数字 + 一句短结论 ---------- */
+.verdict {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: var(--gap-sm) var(--gap);
+  margin: 0;
+  padding: var(--gap-sm) 0 var(--gap) 0;
+  border-bottom: 2px solid var(--ink-strong);
+}
+
+.verdict-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.verdict-key {
+  font-family: var(--font-ui);
+  font-size: var(--step-6);
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+
+.verdict-value {
+  font-family: var(--font-num);
+  font-size: var(--step-2);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-strong);
+  line-height: 1.15;
+}
+
+.verdict-value small {
+  font-size: var(--step-6);
+  color: var(--ink-muted);
+  margin-left: 4px;
+}
+
+.verdict-note {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  font-size: var(--step-5);
+  color: var(--ink-muted);
+}
+
+/* ---------- 严重度横条 ---------- */
+.sev-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  margin: 0 0 var(--gap-sm);
+  padding: 0;
+  list-style: none;
+}
+
+.sev-item {
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--line-strong);
+  font-family: var(--font-ui);
+  font-size: var(--step-5);
+  color: var(--ink-muted);
+}
+
+.sev-item b {
+  display: block;
+  font-family: var(--font-num);
+  font-size: var(--step-3);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-strong);
+}
+
+.sev-item.is-error {
+  background: var(--bad-soft);
+  border-left-color: var(--bad);
+}
+
+.sev-item.is-warn {
+  background: var(--warn-soft);
+  border-left-color: var(--warn);
+}
+
+.sev-item.is-info {
+  background: var(--info-soft);
+  border-left-color: var(--info);
+}
+
+/* ---------- 状态文字标签 ---------- */
+.tag {
+  display: inline-block;
+  padding: 1px 6px 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui);
+  font-size: var(--step-6);
+  line-height: 1.5;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.tag-error {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.tag-warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.tag-info {
+  border-color: var(--info);
+  color: var(--info);
+}
+
+.tag-ok {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.tag-quiet {
+  border-style: dashed;
+  color: var(--ink-faint);
+}
+
+/* ---------- 表格：细横线，无竖线，表头冻结 ---------- */
+.table-wrap {
+  overflow-x: auto;
+  border-top: 1px solid var(--line-strong);
+}
+
+table.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-num);
+  font-size: var(--step-6);
+  font-variant-numeric: tabular-nums;
+}
+
+table.grid caption {
+  caption-side: top;
+  text-align: left;
+  padding: 0 0 8px;
+  font-family: var(--font-ui);
+  font-size: var(--step-6);
+  color: var(--ink-faint);
+}
+
+table.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+  padding: 9px 10px;
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: var(--step-6);
+  font-weight: 600;
+  color: var(--ink-muted);
+  border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+table.grid tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  vertical-align: top;
+}
+
+table.grid tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+table.grid .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+table.grid .is-neg {
+  color: var(--bad);
+}
+
+table.grid .is-pos {
+  color: var(--ok);
+}
+
+table.grid .trunc {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+table.grid tfoot td {
+  padding: 9px 10px;
+  border-top: 2px solid var(--ink-strong);
+  font-weight: 600;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--gap) 0;
+  font-size: var(--step-5);
+  color: var(--ink-muted);
+}
+
+/* ---------- CSS 柱图：不同高度的块，不引图表库 ---------- */
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--gap-sm);
+  min-height: 168px;
+  margin: 0;
+  padding: var(--gap-sm) 0 0;
+  border-bottom: 1px solid var(--line-strong);
+  overflow-x: auto;
+}
+
+.chart-col {
+  flex: 0 0 74px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  height: 168px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.chart-col:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.chart-bar {
+  width: 100%;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background:
+    linear-gradient(to bottom, var(--accent) 0%, var(--accent) 62%, var(--accent-deep) 100%);
+  transition: opacity var(--motion) linear;
+}
+
+.chart-col[data-significant="0"] .chart-bar {
+  background:
+    linear-gradient(to bottom, var(--line-strong) 0%, var(--line-strong) 60%, var(--ink-faint) 100%);
+}
+
+.chart-col:hover .chart-bar {
+  opacity: 0.82;
+}
+
+.chart-label {
+  font-family: var(--font-num);
+  font-size: var(--step-6);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.chart-value {
+  font-family: var(--font-num);
+  font-size: var(--step-6);
+  color: var(--ink-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-axis {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0 0;
+  font-family: var(--font-num);
+  font-size: var(--step-6);
+  color: var(--ink-faint);
+}
+
+.chart-readout {
+  min-height: 22px;
+  margin: 8px 0 0;
+  font-family: var(--font-num);
+  font-size: var(--step-6);
+  color: var(--ink-muted);
+}
+
+/* ---------- 表单 ---------- */
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--gap-sm) var(--gap);
+  align-items: end;
+  margin: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.field > span {
+  font-family: var(--font-ui);
+  font-size: var(--step-6);
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+}
+
+.field select,
+.field input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--step-5);
+  line-height: 1.5;
+}
+
+.field select:focus-visible,
+.field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field-hint {
+  font-family: var(--font-num);
+  font-size: var(--step-6);
+  color: var(--ink-faint);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-sm);
+  align-items: center;
+}
+
+.btn {
+  display: inline-block;
+  padding: 8px 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-ui);
+  font-size: var(--step-5);
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--motion) linear;
+}
+
+.btn:hover {
+  background: var(--accent-deep);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+}
+
+.btn-ghost:hover {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.btn[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* 表单就地反馈：保留已填内容，只追加一行说明 */
+.form-note {
+  margin: var(--gap-sm) 0 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--line-strong);
+  background: var(--surface-2);
+  font-family: var(--font-ui);
+  font-size: var(--step-5);
+  color: var(--ink-muted);
+}
+
+.form-note.is-error {
+  border-left-color: var(--bad);
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.form-note.is-ok {
+  border-left-color: var(--ok);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.form-note[hidden] {
+  display: none;
+}
+
+/* ---------- 定义列表：规则、清单 ---------- */
+.rulelist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rulelist li {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px dotted var(--line-dotted);
+}
+
+@media (min-width: 700px) {
+  .rulelist li {
+    grid-template-columns: 152px 1fr;
+    gap: var(--gap-sm);
+  }
+}
+
+.rulelist dt {
+  font-family: var(--font-ui);
+  font-size: var(--step-6);
+  color: var(--ink-muted);
+}
+
+.rulelist dd {
+  margin: 0;
+  font-family: var(--font-num);
+  font-size: var(--step-6);
+  color: var(--ink);
+}
+
+/* ---------- 明细折叠 ---------- */
+details.evidence {
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+}
+
+details.evidence summary {
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--step-5);
+  color: var(--accent);
+}
+
+details.evidence summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+details.evidence[open] summary {
+  margin-bottom: var(--gap-sm);
+}
+
+/* ---------- 阶段表（紧凑一行一段） ---------- */
+.stagerow {
+  display: grid;
+  grid-template-columns: 76px repeat(3, 1fr) 68px;
+  gap: var(--gap-sm);
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px dotted var(--line-dotted);
+  font-family: var(--font-num);
+  font-size: var(--step-6);
+  color: var(--ink-muted);
+}
+
+.stagerow b {
+  font-weight: 600;
+  color: var(--ink-strong);
+}
+
+.stagerow .stage-name {
+  font-family: var(--font-ui);
+  color: var(--ink);
+}

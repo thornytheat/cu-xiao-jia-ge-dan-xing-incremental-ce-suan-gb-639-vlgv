@@ -1,0 +1,70 @@
+/* theme.css — 只有变量：纸感浅色、酒红强调、疏密度、serif 正文
+   这套取值专供「质量报告」式单栏排版：大留白 + 细横线 + 无阴影。 */
+
+:root {
+  /* 纸面与层次 */
+  --paper: #fbf7f4;
+  --bg: #fbf7f4;
+  --surface: #ffffff;
+  --surface-2: #f3ebe7;
+  --surface-3: #ece2dd;
+
+  /* 墨色 */
+  --ink: #241e1d;
+  --ink-strong: #14100f;
+  --ink-muted: #6d5f5d;
+  --ink-faint: #9b8c89;
+
+  /* 线 */
+  --line: #e7dbd5;
+  --line-strong: #c9b8b1;
+  --line-dotted: #d9cbc5;
+
+  /* 酒红 */
+  --accent: #8e1f35;
+  --accent-deep: #6d1728;
+  --accent-soft: #f5e4e7;
+  --accent-ink: #fff7f6;
+
+  /* 严重度语义色（不兼作品牌色） */
+  --ok: #2c6a4c;
+  --warn: #96690f;
+  --bad: #a02230;
+  --info: #38546e;
+  --ok-soft: #e8f1ec;
+  --warn-soft: #f8efd9;
+  --bad-soft: #f8e3e5;
+  --info-soft: #e6edf4;
+
+  /* 字族：正文 serif，界面 sans，数字 mono */
+  --font-doc: "Songti SC", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
+  --font-ui: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-num: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+
+  /* 字阶（稀疏档） */
+  --step-1: 31px;
+  --step-2: 21px;
+  --step-3: 17px;
+  --step-4: 15px;
+  --step-5: 13px;
+  --step-6: 12px;
+  --leading: 1.82;
+  --tracking-caps: 0.14em;
+
+  /* 间距与密度（疏） */
+  --pad: 30px;
+  --pad-sm: 16px;
+  --gap: 24px;
+  --gap-sm: 12px;
+  --measure: 960px;
+  --stack: 42px;
+
+  /* 圆角：报告感用近直角 */
+  --radius: 2px;
+  --radius-sm: 1px;
+  --radius-pill: 999px;
+
+  --shadow: none;
+  --shadow-lift: 0 1px 0 rgba(36, 30, 29, 0.04);
+  --motion: 120ms;
+}

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}总览{% endblock %}
+{% block heading %}促销弹性与增量测算{% endblock %}
+
+{% block main %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">本期结论</h2>
+    <p class="section-figure">{{ totals.records_total or 0 }} 条记录 · {{ totals.promos_total or 0 }} 个促销</p>
+  </div>
+  <dl class="verdict">
+    <div class="verdict-cell">
+      <dt class="verdict-key">数据记录</dt>
+      <dd class="verdict-value">{{ totals.records_total or 0 }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">入模行</dt>
+      <dd class="verdict-value">{{ totals.rows_ok or 0 }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">剔除行</dt>
+      <dd class="verdict-value">{{ totals.rows_bad or 0 }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">已测算</dt>
+      <dd class="verdict-value">{{ totals.promos_measured or 0 }}<small>个</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">有效天数</dt>
+      <dd class="verdict-value">{{ totals.days_valid or 0 }}<small>/ {{ totals.days_expected or 0 }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">增量合计</dt>
+      <dd class="verdict-value">{{ totals.lift_gmv | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <p class="verdict-note">质量等级 {{ totals.grade or "—" }} · 严重 {{ totals.quarantine_error or 0 }} 条 · 警告 {{ totals.quarantine_warn or 0 }} 条</p>
+  </dl>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">导入与测算</h2>
+    {% if batch %}<p class="section-figure">{{ batch.run_id }}</p>{% endif %}
+  </div>
+  <form class="form" data-endpoint="/api/import" data-method="POST" data-redirect="/">
+    <label class="field">
+      <span>样例集</span>
+      <select name="dataset">
+        {% for ds in datasets %}
+        <option value="{{ ds.key }}"{% if batch and batch.dataset == ds.key %} selected{% endif %}{% if not ds.exists %} disabled{% endif %}>{{ ds.key }} · {{ ds.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span>0 销量处理</span>
+      <select name="zero_mode">
+        <option value="shift"{% if settings.zero_mode == "shift" %} selected{% endif %}>shift · 平移 ln(q+0.5)</option>
+        <option value="drop"{% if settings.zero_mode == "drop" %} selected{% endif %}>drop · 剔除并计数</option>
+      </select>
+    </label>
+    <div class="actions">
+      <button class="btn" type="submit">测算</button>
+    </div>
+  </form>
+  <p class="form-note" hidden></p>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">输入文件</h2>
+    <p class="section-figure">{{ sources | length }} 个</p>
+  </div>
+  {% if sources %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>文件</th><th>用途</th><th>编码</th><th class="num">字节</th><th class="num">记录</th><th>sha256</th></tr>
+      </thead>
+      <tbody>
+        {% for source in sources %}
+        <tr>
+          <td title="{{ source.name }}">{{ source.name }}</td>
+          <td>{{ role_labels.get(source.role, source.role) }}</td>
+          <td>{{ source.encoding or "—" }}{% if source.bom_stripped %} <span class="tag tag-info">BOM</span>{% endif %}</td>
+          <td class="num">{{ source.bytes }}</td>
+          <td class="num">{{ source.rows }}</td>
+          <td title="{{ source.sha256 }}">{{ source.sha256[:12] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有批次。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">阶段计数</h2>
+    <p class="section-figure">{{ stage_flow }}</p>
+  </div>
+  {% if stages %}
+  <div class="stageblock">
+    {% for stage in stages %}
+    <div class="stagerow">
+      <span class="stage-name">{{ stage_labels.get(stage.stage, stage.stage) }}</span>
+      <span>进 <b>{{ stage.in_count }}</b></span>
+      <span>出 <b>{{ stage.out_count }}</b></span>
+      <span>隔离 <b>{{ stage.quarantine_count }}</b></span>
+      <span class="num">{{ stage.elapsed_ms }} ms</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">还没有阶段记录。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">批次历史</h2>
+    <p class="section-figure">{{ batches | length }} 次</p>
+  </div>
+  {% if batches %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>批次号</th><th>样例集</th><th>状态</th><th>创建时间</th><th>批次键</th></tr>
+      </thead>
+      <tbody>
+        {% for item in batches %}
+        <tr>
+          <td><a href="/?batch_id={{ item.batch_id }}">{{ item.batch_id }}</a></td>
+          <td>{{ item.dataset }}</td>
+          <td><span class="tag {{ 'tag-ok' if item.status == 'done' else 'tag-warn' }}">{{ item.status | status }}</span></td>
+          <td>{{ item.created_at | shortdt }}</td>
+          <td title="{{ item.batch_key }}">{{ item.batch_key[:12] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有批次。</p>
+  {% endif %}
+</section>
+{% endblock %}

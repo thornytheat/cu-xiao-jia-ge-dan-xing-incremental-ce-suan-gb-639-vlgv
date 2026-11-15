@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% block title %}实验设计{% endblock %}
+{% block heading %}促销实验设计{% endblock %}
+
+{% block main %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">设计输入</h2>
+    <p class="section-figure">{% if plan %}{{ plan.sku }} · {{ plan.channel }}{% else %}未选商品{% endif %}</p>
+  </div>
+  <form class="form" method="get" action="/design">
+    <label class="field">
+      <span>目标商品</span>
+      <select name="sku">
+        {% for item in options %}
+        <option value="{{ item.sku }}"{% if params.get("sku") == item.sku %} selected{% endif %}>{{ item.sku }} · {{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span>渠道</span>
+      <select name="channel">
+        {% for channel in (options | map(attribute="channel") | unique | list) %}
+        <option value="{{ channel }}"{% if params.get("channel") == channel %} selected{% endif %}>{{ channel }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="field">
+      <span>目标效应</span>
+      <input name="target_lift" value="{{ params.get('target_lift') or '0.05' }}" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>功效</span>
+      <input name="power" value="{{ params.get('power') or '0.80' }}" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>α</span>
+      <input name="alpha" value="{{ params.get('alpha') or '0.05' }}" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>预算天数</span>
+      <input name="budget_days" value="{{ params.get('budget_days') or '28' }}" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>开始日</span>
+      <input name="start_date" value="{{ params.get('start_date') or '' }}" placeholder="{{ plan.start_date if plan else '' }}" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>缺日补法</span>
+      <select name="impute">
+        {% for key, label in impute_modes %}
+        <option value="{{ key }}"{% if params.get("impute") == key %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="actions">
+      <button class="btn" type="submit">重算</button>
+      <a class="btn btn-ghost" href="/design">默认参数</a>
+    </div>
+  </form>
+  {% if error %}
+  <p class="form-note is-error">{{ error.code }} · {{ error.message }}</p>
+  {% endif %}
+</section>
+
+{% if plan %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">本期结论</h2>
+    <p class="section-figure">{{ plan.target_lift_pct }} 目标 · {{ plan.budget_days }} 天预算</p>
+  </div>
+  <dl class="verdict">
+    <div class="verdict-cell">
+      <dt class="verdict-key">最小实验期</dt>
+      <dd class="verdict-value">{{ plan.min_days_text }}<small>天</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">预算下可识别</dt>
+      <dd class="verdict-value">{{ plan.mde_pct }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">预算下功效</dt>
+      <dd class="verdict-value">{{ plan.budget_power_pct }}</dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">预期下限</dt>
+      <dd class="verdict-value">{{ plan.interval_low | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">预期上限</dt>
+      <dd class="verdict-value">{{ plan.interval_high | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <p class="verdict-note">{{ plan.verdict }} · 区间{{ "含 0" if plan.contains_zero else "不含 0" }} · 缺日 {{ plan.history_filled }} 天 · 对照 {{ plan.control_pick.sku if plan.control_pick else "—" }}</p>
+  </dl>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">实验窗与波动</h2>
+    <p class="section-figure">{{ plan.history_present }} / {{ plan.history_days }} 天有效</p>
+  </div>
+  <ul class="rulelist">
+    <li>
+      <dt>实验窗</dt>
+      <dd>{{ plan.start_date }} → {{ plan.end_date }}（{{ plan.planned_days }} 天，左闭右开）</dd>
+    </li>
+    <li>
+      <dt>基线窗</dt>
+      <dd>{{ plan.baseline_days }} 天</dd>
+    </li>
+    <li>
+      <dt>日均销售额</dt>
+      <dd>{{ plan.daily_mean | money }} {{ money_unit }} · 波动 {{ plan.daily_sd | money }} · 变异系数 {{ plan.cv }}</dd>
+    </li>
+    <li>
+      <dt>弹性斜率</dt>
+      <dd>{{ plan.slope }} · 朴素标准误 {{ plan.se_naive }} · 稳健标准误 {{ plan.se_hc1 }}</dd>
+    </li>
+    <li>
+      <dt>方差放大</dt>
+      <dd>稳健/朴素 {{ plan.robust_ratio }} · 方差 {{ plan.variance_factor }} 倍 · 所需天数 {{ plan.min_days_naive_text }} → {{ plan.min_days_text }} 天 · 系数 {{ plan.k }}</dd>
+    </li>
+  </ul>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">缺日插补</h2>
+    <p class="section-figure">缺 {{ plan.history_filled }} 天 · 当前 {{ plan.impute_label }}</p>
+  </div>
+  <div class="table-wrap">
+    <table class="grid" data-sortable>
+      <thead>
+        <tr><th>补法</th><th class="num">天数</th><th class="num">补齐</th><th class="num">日均</th><th class="num">波动</th><th class="num">变异系数</th><th class="num">所需天数</th><th class="num">预算下功效</th><th class="num">可识别</th><th class="num">预期下限</th><th class="num">预期上限</th><th>结论</th></tr>
+      </thead>
+      <tbody>
+        {% for row in plan.impute_rows %}
+        <tr>
+          <td>{{ row.label }}</td>
+          <td class="num">{{ row.days }}</td>
+          <td class="num">{{ row.filled }}</td>
+          <td class="num">{{ row.mean | money }}</td>
+          <td class="num">{{ row.sd | money }}</td>
+          <td class="num">{{ row.cv }}</td>
+          <td class="num">{{ row.min_days_text }}</td>
+          <td class="num">{{ row.budget_power_pct }}</td>
+          <td class="num">{{ row.mde_pct }}</td>
+          <td class="num">{{ row.interval_low | money }}</td>
+          <td class="num">{{ row.interval_high | money }}</td>
+          <td><span class="tag tag-{{ row.verdict_level }}">{{ row.verdict }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="form-note {% if plan.impute_summary.sensitive %}is-error{% else %}is-ok{% endif %}">{{ plan.impute_summary.detail }}</p>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">控制组候选</h2>
+    <p class="section-figure">{{ plan.control_candidates | length }} 个 · 趋势差门槛 {{ trend_slack }}</p>
+  </div>
+  {% if plan.control_candidates %}
+  <div class="table-wrap">
+    <table class="grid" data-sortable>
+      <thead>
+        <tr><th>商品</th><th>渠道</th><th>登记</th><th class="num">水平比</th><th class="num">目标趋势</th><th class="num">对照趋势</th><th class="num">趋势差</th><th class="num">重叠天数</th><th class="num">偏误</th><th>结论</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        {% for row in plan.control_candidates %}
+        <tr>
+          <td>{{ row.sku }}</td>
+          <td>{{ row.channel }}</td>
+          <td>{{ "是" if row.registered else "—" }}</td>
+          <td class="num">{{ row.level_ratio }}</td>
+          <td class="num">{{ row.target_trend }}</td>
+          <td class="num">{{ row.control_trend }}</td>
+          <td class="num">{{ row.trend_gap }}</td>
+          <td class="num">{{ row.overlap_days }}</td>
+          <td class="num">{{ row.bias }}</td>
+          <td><span class="tag tag-{{ 'ok' if row.status == '可用' else ('warn' if row.status != '排除' else 'error') }}">{{ row.status }}</span></td>
+          <td class="trunc" title="{{ row.note }}">{{ row.note }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">同渠道没有其它商品。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">设计校验</h2>
+    <p class="section-figure">{{ plan.quarantine | length }} 条</p>
+  </div>
+  <div class="table-wrap">
+    <table class="grid" data-sortable>
+      <thead>
+        <tr><th>原因码</th><th>级别</th><th>结论</th><th>说明</th><th>复核动作</th></tr>
+      </thead>
+      <tbody>
+        {% for row in plan.quarantine %}
+        <tr data-level="{{ row.level }}">
+          <td>{{ row.code }}</td>
+          <td><span class="tag tag-{{ row.level }}">{{ row.level | level }}</span></td>
+          <td class="trunc" title="{{ row.title }}">{{ row.title }}</td>
+          <td class="trunc" title="{{ row.detail }}">{{ row.detail or "—" }}</td>
+          <td class="trunc" title="{{ row.hint }}">{{ row.hint }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">本期结论</h2>
+    <p class="section-figure">0 天</p>
+  </div>
+  <p class="empty">还没有可设计的历史序列。</p>
+</section>
+{% endif %}
+{% endblock %}

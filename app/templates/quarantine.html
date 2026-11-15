@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}隔离区{% endblock %}
+{% block heading %}隔离区与原因码{% endblock %}
+
+{% block main %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">严重度</h2>
+    <p class="section-figure" data-table-count>{{ total }} 条</p>
+  </div>
+  <ul class="sev-bar">
+    <li class="sev-item is-error"><b>{{ counts.get("error", 0) }}</b>严重 · 已隔离，不进测算</li>
+    <li class="sev-item is-warn"><b>{{ counts.get("warn", 0) }}</b>警告 · 需人工确认</li>
+    <li class="sev-item is-info"><b>{{ counts.get("info", 0) }}</b>提示 · 已自动处理</li>
+  </ul>
+  <div class="actions">
+    <a class="btn" href="/api/quarantine.csv">导出隔离行</a>
+    <a class="btn btn-ghost" href="/report">去报告</a>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">原因码分布</h2>
+    <p class="section-figure">{{ distribution | length }} 类</p>
+  </div>
+  {% if distribution %}
+  <div class="table-wrap">
+    <table class="grid" data-sortable>
+      <thead>
+        <tr><th>原因码</th><th>级别</th><th>阶段</th><th>结论</th><th class="num">条数</th><th>复核动作</th></tr>
+      </thead>
+      <tbody>
+        {% for row in distribution %}
+        <tr data-level="{{ row.level }}">
+          <td>{{ row.code }}</td>
+          <td><span class="tag tag-{{ 'error' if row.level == 'error' else ('warn' if row.level == 'warn' else 'info') }}">{{ row.level_label }}</span></td>
+          <td>{{ stage_labels.get(row.stage, row.stage) }}</td>
+          <td class="trunc" title="{{ row.title }}">{{ row.title }}</td>
+          <td class="num">{{ row.count }}</td>
+          <td class="trunc" title="{{ row.hint }}">{{ row.hint }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">没有隔离记录。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">隔离行</h2>
+    <label class="field">
+      <span>按级别筛选</span>
+      <select data-table-filter="#quarantine-table">
+        <option value="">全部</option>
+        <option value="error">严重</option>
+        <option value="warn">警告</option>
+        <option value="info">提示</option>
+      </select>
+    </label>
+  </div>
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="grid" id="quarantine-table" data-sortable>
+      <thead>
+        <tr><th>原因码</th><th>级别</th><th>阶段</th><th>来源</th><th class="num">行号</th><th>字段</th><th>原值</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr data-level="{{ row.level }}">
+          <td>{{ row.code }}</td>
+          <td><span class="tag tag-{{ 'error' if row.level == 'error' else ('warn' if row.level == 'warn' else 'info') }}">{{ row.level_label }}</span></td>
+          <td>{{ stage_labels.get(row.stage, row.stage) }}</td>
+          <td>{{ row.source }}</td>
+          <td class="num" data-sort="{{ row.line_no if row.line_no is not none else '' }}">{{ row.line_no if row.line_no is not none else "—" }}</td>
+          <td>{{ row.field or "—" }}</td>
+          <td class="trunc" title="{{ row.raw_value }}">{{ row.raw_value or "—" }}</td>
+          <td class="trunc" title="{{ row.detail }}">{{ row.detail }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有隔离行。</p>
+  {% endif %}
+</section>
+{% endblock %}

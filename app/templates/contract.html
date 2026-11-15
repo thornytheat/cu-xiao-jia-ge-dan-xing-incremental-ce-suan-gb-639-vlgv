@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}含税与归价{% endblock %}
+{% block heading %}含税与归价规则{% endblock %}
+
+{% block main %}
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">换算规则</h2>
+    <p class="section-figure">{{ contract.rules | length }} 条</p>
+  </div>
+  <ul class="rulelist">
+    {% for rule in contract.rules %}
+    <li>
+      <dt>{{ rule.label }}</dt>
+      <dd>{{ rule.value }}</dd>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">试算</h2>
+    <p class="section-figure">元 → {{ price_unit }}</p>
+  </div>
+  <form class="form" data-endpoint="/api/price/preview" data-method="POST" data-reload="0">
+    <label class="field">
+      <span>含税单价</span>
+      <input name="price" value="1,234.50" autocomplete="off">
+      <span class="field-hint">允许千分位与单位后缀</span>
+    </label>
+    <label class="field">
+      <span>单价单位</span>
+      <input name="unit" value="元/箱" autocomplete="off">
+    </label>
+    <label class="field">
+      <span>税率</span>
+      <input name="tax" value="0.13" autocomplete="off">
+    </label>
+    <div class="actions">
+      <button class="btn" type="submit">换算</button>
+    </div>
+  </form>
+  <p class="form-note" hidden></p>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">列契约</h2>
+    <p class="section-figure">{{ contract.fields | length }} 列</p>
+  </div>
+  <div class="table-wrap">
+    <table class="grid" data-sortable>
+      <thead>
+        <tr><th>列名</th><th>类型</th><th>单位</th><th>精度</th><th>可空</th><th>规则</th></tr>
+      </thead>
+      <tbody>
+        {% for field in contract.fields %}
+        <tr>
+          <td>{{ field.name }}</td>
+          <td>{{ field.type }}</td>
+          <td>{{ field.unit }}</td>
+          <td>{{ field.precision }}</td>
+          <td>{{ "是" if field.nullable else "否" }}</td>
+          <td class="trunc" title="{{ field.rule }}">{{ field.rule }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <details class="evidence">
+    <summary>促销日历列契约</summary>
+    <div class="table-wrap">
+      <table class="grid">
+        <thead>
+          <tr><th>列名</th><th>类型</th><th>单位</th><th>可空</th><th>规则</th></tr>
+        </thead>
+        <tbody>
+          {% for field in contract.promo_fields %}
+          <tr>
+            <td>{{ field.name }}</td>
+            <td>{{ field.type }}</td>
+            <td>{{ field.unit }}</td>
+            <td>{{ "是" if field.nullable else "否" }}</td>
+            <td class="trunc" title="{{ field.rule }}">{{ field.rule }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+<section class="split">
+  <div class="section">
+    <div class="section-head">
+      <h2 class="section-title">税率</h2>
+    </div>
+    <ul class="rulelist">
+      {% for row in contract.tax_rates %}
+      <li><dt>{{ row.raw }}</dt><dd>{{ row.rate }}</dd></li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="section">
+    <div class="section-head">
+      <h2 class="section-title">盒规</h2>
+    </div>
+    <ul class="rulelist">
+      {% for row in contract.pack_sizes %}
+      <li><dt>1 {{ row.unit }}</dt><dd>{{ row.pieces }} 件</dd></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">活动价版本</h2>
+    <p class="section-figure">{{ promos | length }} 版</p>
+  </div>
+  {% if promos %}
+  <div class="table-wrap">
+    <table class="grid" data-sortable>
+      <thead>
+        <tr><th>促销编号</th><th>版本</th><th>商品</th><th>渠道</th><th>开始</th><th>结束</th><th class="num">活动价</th><th>状态</th><th>生效</th><th>重叠</th></tr>
+      </thead>
+      <tbody>
+        {% for promo in promos %}
+        <tr>
+          <td>{{ promo.promo_id }}</td>
+          <td class="num">{{ promo.version }}</td>
+          <td>{{ promo.sku }}</td>
+          <td>{{ promo.channel }}</td>
+          <td>{{ promo.start_date }}</td>
+          <td>{{ promo.end_date }}</td>
+          <td class="num">{{ promo.activity_price or "—" }}</td>
+          <td><span class="tag {{ 'tag-ok' if promo.status == '生效' else 'tag-quiet' }}">{{ promo.status }}</span></td>
+          <td>{{ "是" if promo.effective else "否" }}</td>
+          <td>{% if promo.overlap %}<span class="tag tag-warn">重叠</span>{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有批次。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">生效窗口</h2>
+    <p class="section-figure">{{ windows | length }} 段</p>
+  </div>
+  {% if windows %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>促销编号</th><th>生效版本</th><th>区间</th><th class="num">天数</th><th class="num">活动价(不含税)</th><th class="num">常规价(不含税)</th></tr>
+      </thead>
+      <tbody>
+        {% for window in windows %}
+        <tr>
+          <td>{{ window.promo_id }}</td>
+          <td class="num">v{{ window.version }}</td>
+          <td>{{ window.start_date }} → {{ window.end_date }}</td>
+          <td class="num">{{ window.days }}</td>
+          <td class="num">{{ window.price_excl | price }}</td>
+          <td class="num">{{ window.base_price_excl | price }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有生效窗口。</p>
+  {% endif %}
+</section>
+{% endblock %}

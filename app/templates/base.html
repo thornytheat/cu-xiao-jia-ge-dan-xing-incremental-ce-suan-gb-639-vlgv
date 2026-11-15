@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}促销弹性与增量{% endblock %} · pricelift</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <link rel="stylesheet" href="/static/layout.css">
+  <link rel="stylesheet" href="/static/components.css">
+  <link rel="stylesheet" href="/static/print.css" media="print">
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead-inner">
+      <p class="masthead-kicker">牧原乳品 · 区域销售部</p>
+      <h1 class="masthead-title">{% block heading %}{% endblock %}</h1>
+      <dl class="runline">
+        <div><dt>批次号</dt><dd>{{ batch.batch_id if batch else "—" }}</dd></div>
+        <div><dt>样例集</dt><dd>{{ batch.dataset if batch else "—" }}</dd></div>
+        <div><dt>生成时间</dt><dd>{{ generated_at }}</dd></div>
+        <div><dt>时区</dt><dd>{{ timezone_label }}</dd></div>
+        <div><dt>规则版本</dt><dd>{{ rule_version }}</dd></div>
+      </dl>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="页面">
+    <div class="tabs-inner">
+      {% for path, label, key in nav %}
+      <a href="{{ path }}"{% if request.url.path == path %} aria-current="page"{% endif %}>{{ label }}</a>
+      {% endfor %}
+    </div>
+  </nav>
+
+  <main class="body">
+    <div class="body-inner">
+      {% block main %}{% endblock %}
+    </div>
+  </main>
+
+  <footer class="colophon">
+    <div class="colophon-inner">
+      <span><strong>打印</strong> {{ print_ts }}</span>
+      <span><strong>金额单位</strong> {{ money_unit }}</span>
+      <span><strong>销量单位</strong> {{ qty_unit }}</span>
+      <span><strong>单价单位</strong> {{ price_unit }}</span>
+    </div>
+  </footer>
+
+  <script src="/static/app.js" defer></script>
+  <script src="/static/tables.js" defer></script>
+  <script src="/static/charts.js" defer></script>
+</body>
+</html>
