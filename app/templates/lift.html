@@ -33,7 +33,28 @@
       <dt class="verdict-key">已测算</dt>
       <dd class="verdict-value">{{ totals.promos_measured or 0 }}<small>/ {{ totals.promos_total or 0 }}</small></dd>
     </div>
-    <p class="verdict-note">阻断 {{ totals.promos_blocked or 0 }} 个 · 未生效 {{ totals.promos_pending or 0 }} 个 · 缺日 {{ totals.days_missing or 0 }} 天</p>
+    <div class="verdict-cell">
+      <dt class="verdict-key">品类共同增长</dt>
+      <dd class="verdict-value">{{ totals.category_lift_gmv | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">其中自身增量</dt>
+      <dd class="verdict-value">{{ totals.own_gmv | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <div class="verdict-cell">
+      <dt class="verdict-key">无法归属残差</dt>
+      <dd class="verdict-value">{{ totals.residual_gmv | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <p class="verdict-note">
+      挤占净额 {{ totals.cannibal_gmv | money }} 元（品类内转移，不重复计）·
+      重叠 {{ totals.overlap_day_count or 0 }} 促销日 ·
+      阻断 {{ totals.promos_blocked or 0 }} 个 · 未生效 {{ totals.promos_pending or 0 }} 个
+      {% if publish %}· 版本状态：
+        <span class="tag {{ 'tag-ok' if publish.status == 'active' else 'tag-warn' }}">
+        {{ {'active':'已生效','failed':'切换失败·旧版保留','superseded':'已被接替','pending':'待切换'}.get(publish.status, publish.status) }}
+        </span>
+      {% endif %}
+    </p>
   </dl>
 </section>
 
@@ -109,6 +130,141 @@
   </div>
   {% else %}
   <p class="empty">还没有测算结果。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">重叠增量三分（自身 / 挤占 / 残差）</h2>
+    <p class="section-figure">价格变化归自身 · 重叠客流匹配为挤占 · 匹配不上留残差，不摊回商品</p>
+  </div>
+  {% if decomp %}
+  <div class="table-wrap">
+    <table class="grid" data-sortable>
+      <thead>
+        <tr><th>促销编号</th><th>商品</th><th>品类</th><th>渠道</th><th class="num">重叠日</th><th class="num">自身增量</th><th class="num">挤占</th><th class="num">残差</th><th class="num">实测增量</th></tr>
+      </thead>
+      <tbody>
+        {% for row in decomp %}
+        <tr>
+          <td>{{ row.promo_id }}</td>
+          <td>{{ row.sku }}</td>
+          <td>{{ row.category_label }}</td>
+          <td>{{ row.channel }}</td>
+          <td class="num">{{ row.overlap_days }} / {{ row.days_total }}</td>
+          <td class="num is-pos">{{ row.own_gmv | money }}</td>
+          <td class="num {{ 'is-neg' if row.cannibal_gmv | float < 0 else 'is-pos' }}">{{ row.cannibal_gmv | money }}</td>
+          <td class="num">{{ row.residual_gmv | money }}</td>
+          <td class="num {{ 'is-neg' if row.lift_gmv | float < 0 else 'is-pos' }}">{{ row.lift_gmv | money }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有三分结果。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">品类口径（共同增长只计一次）</h2>
+    <p class="section-figure">品类增量 = Σ自身 + Σ残差；挤占净额恒为 0</p>
+  </div>
+  {% if category_rows %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>品类</th><th class="num">促销数</th><th class="num">自身增量</th><th class="num">挤占净额</th><th class="num">残差</th><th class="num">逐户合计(原口径)</th><th class="num">品类共同增长</th><th class="num">重复计入额</th></tr>
+      </thead>
+      <tbody>
+        {% for row in category_rows %}
+        <tr>
+          <td>{{ row.category_label }}</td>
+          <td class="num">{{ row.promo_count }}</td>
+          <td class="num">{{ row.own_gmv | money }}</td>
+          <td class="num">{{ row.cannibal_gmv | money }}</td>
+          <td class="num">{{ row.residual_gmv | money }}</td>
+          <td class="num">{{ row.lift_gmv | money }}</td>
+          <td class="num is-pos"><strong>{{ row.category_lift_gmv | money }}</strong></td>
+          <td class="num">{{ row.double_count_gmv | money }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有品类汇总。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">促销重叠日</h2>
+    <p class="section-figure">同品类同渠道 ≥2 个促销生效的自然日</p>
+  </div>
+  {% if overlap_rows %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>日期</th><th>品类</th><th>渠道</th><th>促销</th><th class="num">正偏差(件)</th><th class="num">负偏差(件)</th><th class="num">已匹配挤占(件)</th><th class="num">净缺口残差(件)</th></tr>
+      </thead>
+      <tbody>
+        {% for row in overlap_rows %}
+        <tr>
+          <td>{{ row.sale_date }}</td>
+          <td>{{ row.category_label }}</td>
+          <td>{{ row.channel }}</td>
+          <td>{{ row.promo_ids | join('、') }}</td>
+          <td class="num">{{ row.gain_qty }}</td>
+          <td class="num">{{ row.loss_qty }}</td>
+          <td class="num">{{ row.matched_qty }}</td>
+          <td class="num {{ 'is-neg' if row.residual_qty | float < 0 else '' }}">{{ row.residual_qty }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">本批次没有同品类促销重叠日。</p>
+  {% endif %}
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <h2 class="section-title">三层对账与整版切换</h2>
+    <p class="section-figure">商品层 / 渠道层 / 品类层，差额全 0 才切换；失败保留旧版</p>
+  </div>
+  {% if reconcile_rows %}
+  <div class="table-wrap">
+    <table class="grid">
+      <thead>
+        <tr><th>层</th><th>账目</th><th class="num">左值</th><th class="num">右值</th><th class="num">差额</th><th>结论</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        {% for row in reconcile_rows %}
+        <tr>
+          <td>{{ row.layer }}</td>
+          <td>{{ row.account }}</td>
+          <td class="num">{{ row.left_value }}</td>
+          <td class="num">{{ row.right_value }}</td>
+          <td class="num">{{ row.delta }}</td>
+          <td><span class="tag {{ 'tag-ok' if row.ok else 'tag-warn' }}">{{ '平' if row.ok else '不平' }}</span></td>
+          <td>{{ row.note }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if publish %}
+  <p class="form-note">
+    发布版本 {{ publish.batch_id }} · 规则 {{ publish.rule_version }} ·
+    对账 {{ publish.checks_total - publish.checks_failed }}/{{ publish.checks_total }} 平账 ·
+    {% if publish.previous_batch_id %}接替旧版 {{ publish.previous_batch_id }}{% else %}首个生效版{% endif %}
+  </p>
+  {% endif %}
+  {% else %}
+  <p class="empty">还没有对账记录。</p>
   {% endif %}
 </section>
 

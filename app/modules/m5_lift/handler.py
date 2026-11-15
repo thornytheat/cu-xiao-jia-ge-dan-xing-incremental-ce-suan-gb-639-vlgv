@@ -38,6 +38,11 @@ def api_lift(body: LiftIn, request: Request) -> dict:
         "counters": result["counters"],
         "lift": store.lift(batch_id),
         "spread": store.spread(batch_id),
+        "decomp": store.lift_decomp(batch_id),
+        "category": store.lift_category(batch_id),
+        "overlap": store.lift_overlap(batch_id),
+        "reconcile": store.reconcile_checks(batch_id),
+        "publish": store.get_published(batch_id),
         "note": result["note"],
     }
 
@@ -47,11 +52,18 @@ def api_lift_state(request: Request) -> dict:
     ctx = web.get_ctx(request)
     batch_id = _batch_id(request)
     if batch_id is None:
-        return {"batch_id": None, "lift": [], "spread": [], "totals": {}}
+        return {"batch_id": None, "lift": [], "spread": [], "decomp": [],
+                "category": [], "overlap": [], "reconcile": [],
+                "publish": None, "totals": {}}
     return {
         "batch_id": batch_id,
         "lift": ctx.store.lift(batch_id),
         "spread": ctx.store.spread(batch_id),
+        "decomp": ctx.store.lift_decomp(batch_id),
+        "category": ctx.store.lift_category(batch_id),
+        "overlap": ctx.store.lift_overlap(batch_id),
+        "reconcile": ctx.store.reconcile_checks(batch_id),
+        "publish": ctx.store.get_published(batch_id),
         "totals": ctx.store.totals(batch_id),
     }
 
@@ -77,10 +89,20 @@ def page_lift(request: Request):
     grouped: dict[str, list[dict]] = {}
     for row in spread_rows:
         grouped.setdefault(row["promo_id"], []).append(row)
+    decomp_rows = ctx.store.lift_decomp(batch_id) if batch_id else []
+    category_rows = ctx.store.lift_category(batch_id) if batch_id else []
+    overlap_rows = ctx.store.lift_overlap(batch_id) if batch_id else []
+    reconcile_rows = ctx.store.reconcile_checks(batch_id) if batch_id else []
+    publish = ctx.store.get_published(batch_id) if batch_id else None
     return web.render(
         request, "lift.html",
         lift=lift_rows,
         spread=grouped,
+        decomp=decomp_rows,
+        category_rows=category_rows,
+        overlap_rows=overlap_rows,
+        reconcile_rows=reconcile_rows,
+        publish=publish,
         totals=totals,
         batches=ctx.store.list_batches(12),
     )

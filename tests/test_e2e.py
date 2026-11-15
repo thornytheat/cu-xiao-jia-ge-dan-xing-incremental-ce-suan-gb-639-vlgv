@@ -39,7 +39,9 @@ def test_full_pipeline_end_to_end(client):
 
     report = client.get("/api/report").json()
     assert report["balanced"] is True
-    assert len(report["reconcile"]) == 5
+    assert len(report["reconcile"]) == 8
+    assert {row["account"] for row in report["reconcile"]} >= {
+        "三分账", "挤占账", "品类账"}
 
     csv_body = client.get("/api/export?kind=reconcile")
     assert csv_body.status_code == 200

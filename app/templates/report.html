@@ -85,6 +85,8 @@
     <li><dt>实际销售额</dt><dd>{{ payload.totals.actual_gmv | money }} {{ money_unit }}</dd></li>
     <li><dt>基线销售额</dt><dd>{{ payload.totals.base_gmv | money }} {{ money_unit }}</dd></li>
     <li><dt>增量销售额</dt><dd>{{ payload.totals.lift_gmv | money }} {{ money_unit }}</dd></li>
+    <li><dt>其中自身增量</dt><dd>{{ payload.totals.own_gmv | money }} {{ money_unit }} · 挤占净额 {{ payload.totals.cannibal_gmv | money }} · 残差 {{ payload.totals.residual_gmv | money }}</dd></li>
+    <li><dt>品类共同增长</dt><dd>{{ payload.totals.category_lift_gmv | money }} {{ money_unit }} · 重复计入额 {{ payload.totals.double_count_gmv | money }} · 重叠 {{ payload.totals.overlap_day_count or 0 }} 促销日</dd></li>
     <li><dt>分摊合计</dt><dd>{{ payload.totals.spread_total | money }} {{ money_unit }}</dd></li>
     <li><dt>覆盖</dt><dd>{{ payload.totals.coverage | pct }} · 数据错误 {{ payload.totals.quarantine_error }} 条</dd></li>
   </ul>

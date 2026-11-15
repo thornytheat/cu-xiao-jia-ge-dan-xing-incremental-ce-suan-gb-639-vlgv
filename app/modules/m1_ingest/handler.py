@@ -45,6 +45,7 @@ def api_import(body: ImportIn, request: Request) -> dict:
         "replay": result["replay"],
         "dataset": batch["dataset"],
         "counters": result["counters"],
+        "publish": result.get("publish"),
         "note": result["note"],
     }
 

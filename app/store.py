@@ -88,6 +88,50 @@ CREATE TABLE IF NOT EXISTS spread (
     ratio TEXT NOT NULL, lift_gmv TEXT NOT NULL, actual_gmv TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS lift_decomp (
+    batch_id TEXT NOT NULL, promo_id TEXT NOT NULL, sku TEXT NOT NULL,
+    channel TEXT NOT NULL, category TEXT NOT NULL, category_label TEXT NOT NULL,
+    days_total INTEGER NOT NULL, overlap_days INTEGER NOT NULL,
+    own_qty TEXT NOT NULL, cannibal_qty TEXT NOT NULL, residual_qty TEXT NOT NULL,
+    lift_qty TEXT NOT NULL, own_gmv TEXT NOT NULL, cannibal_gmv TEXT NOT NULL,
+    residual_gmv TEXT NOT NULL, lift_gmv TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lift_category (
+    batch_id TEXT NOT NULL, category TEXT NOT NULL, category_label TEXT NOT NULL,
+    promo_count INTEGER NOT NULL, own_gmv TEXT NOT NULL, cannibal_gmv TEXT NOT NULL,
+    residual_gmv TEXT NOT NULL, lift_gmv TEXT NOT NULL, category_lift_gmv TEXT NOT NULL,
+    double_count_gmv TEXT NOT NULL, own_qty TEXT NOT NULL, cannibal_qty TEXT NOT NULL,
+    residual_qty TEXT NOT NULL, lift_qty TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lift_overlap (
+    batch_id TEXT NOT NULL, category TEXT NOT NULL, category_label TEXT NOT NULL,
+    channel TEXT NOT NULL, sale_date TEXT NOT NULL, promo_count INTEGER NOT NULL,
+    gain_qty TEXT NOT NULL, loss_qty TEXT NOT NULL, matched_qty TEXT NOT NULL,
+    residual_qty TEXT NOT NULL, promo_ids TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS lift_channel_component (
+    batch_id TEXT NOT NULL, promo_id TEXT NOT NULL, channel TEXT NOT NULL,
+    component TEXT NOT NULL, lift_gmv TEXT NOT NULL, measured_gmv TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS reconcile_checks (
+    batch_id TEXT NOT NULL, layer TEXT NOT NULL, account TEXT NOT NULL,
+    left_value TEXT NOT NULL, right_value TEXT NOT NULL, delta TEXT NOT NULL,
+    ok INTEGER NOT NULL, note TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS published (
+    batch_id TEXT PRIMARY KEY, batch_key TEXT NOT NULL, dataset TEXT NOT NULL,
+    rule_version TEXT NOT NULL, status TEXT NOT NULL,
+    previous_batch_id TEXT, checks_total INTEGER NOT NULL, checks_failed INTEGER NOT NULL,
+    published_at TEXT, note TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_published_active
+    ON published(dataset, status);
+
 CREATE TABLE IF NOT EXISTS stages (
     batch_id TEXT NOT NULL, stage TEXT NOT NULL, in_count INTEGER NOT NULL,
     out_count INTEGER NOT NULL, quarantine_count INTEGER NOT NULL,
@@ -106,6 +150,8 @@ CREATE TABLE IF NOT EXISTS manifests (
 BATCH_TABLES = (
     "sources", "sales", "promos", "promo_windows", "quarantine",
     "elasticity", "lift", "spread", "stages", "totals", "manifests",
+    "lift_decomp", "lift_category", "lift_overlap", "lift_channel_component",
+    "reconcile_checks",
 )
 
 
@@ -264,6 +310,57 @@ class Store:
                        VALUES (?,?,?,?,?,?)""",
                     (batch_id, row["promo_id"], row["channel"], row["ratio"],
                      row["lift_gmv"], row["actual_gmv"]))
+            for row in payload.get("lift_decomp", []):
+                conn.execute(
+                    """INSERT INTO lift_decomp (batch_id, promo_id, sku, channel,
+                            category, category_label, days_total, overlap_days,
+                            own_qty, cannibal_qty, residual_qty, lift_qty,
+                            own_gmv, cannibal_gmv, residual_gmv, lift_gmv)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (batch_id, row["promo_id"], row["sku"], row["channel"],
+                     row["category"], row["category_label"], row["days_total"],
+                     row["overlap_days"], row["own_qty"], row["cannibal_qty"],
+                     row["residual_qty"], row["lift_qty"], row["own_gmv"],
+                     row["cannibal_gmv"], row["residual_gmv"], row["lift_gmv"]))
+            for row in payload.get("lift_category", []):
+                conn.execute(
+                    """INSERT INTO lift_category (batch_id, category, category_label,
+                            promo_count, own_gmv, cannibal_gmv, residual_gmv, lift_gmv,
+                            category_lift_gmv, double_count_gmv, own_qty, cannibal_qty,
+                            residual_qty, lift_qty)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (batch_id, row["category"], row["category_label"],
+                     row["promo_count"], row["own_gmv"], row["cannibal_gmv"],
+                     row["residual_gmv"], row["lift_gmv"], row["category_lift_gmv"],
+                     row["double_count_gmv"], row["own_qty"], row["cannibal_qty"],
+                     row["residual_qty"], row["lift_qty"]))
+            for row in payload.get("lift_overlap", []):
+                promo_ids = row["promo_ids"]
+                promo_ids_text = (json.dumps(promo_ids, ensure_ascii=False)
+                                  if not isinstance(promo_ids, str) else promo_ids)
+                conn.execute(
+                    """INSERT INTO lift_overlap (batch_id, category, category_label,
+                            channel, sale_date, promo_count, gain_qty, loss_qty,
+                            matched_qty, residual_qty, promo_ids)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (batch_id, row["category"], row["category_label"], row["channel"],
+                     row["sale_date"], row["promo_count"], row["gain_qty"],
+                     row["loss_qty"], row["matched_qty"], row["residual_qty"],
+                     promo_ids_text))
+            for row in payload.get("lift_channel_component", []):
+                conn.execute(
+                    """INSERT INTO lift_channel_component (batch_id, promo_id, channel,
+                            component, lift_gmv, measured_gmv)
+                       VALUES (?,?,?,?,?,?)""",
+                    (batch_id, row["promo_id"], row["channel"], row["component"],
+                     row["lift_gmv"], row["measured_gmv"]))
+            for row in payload.get("reconcile_checks", []):
+                conn.execute(
+                    """INSERT INTO reconcile_checks (batch_id, layer, account,
+                            left_value, right_value, delta, ok, note)
+                       VALUES (?,?,?,?,?,?,?,?)""",
+                    (batch_id, row["layer"], row["account"], row["left"],
+                     row["right"], row["delta"], int(row["ok"]), row["note"]))
             for row in payload.get("stages", []):
                 conn.execute(
                     """INSERT INTO stages (batch_id, stage, in_count, out_count,
@@ -338,6 +435,93 @@ class Store:
     def spread(self, batch_id: str) -> list[dict]:
         return self._rows(
             "SELECT * FROM spread WHERE batch_id=? ORDER BY promo_id, channel", (batch_id,))
+
+    def lift_decomp(self, batch_id: str) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM lift_decomp WHERE batch_id=? ORDER BY promo_id", (batch_id,))
+
+    def lift_category(self, batch_id: str) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM lift_category WHERE batch_id=? ORDER BY category", (batch_id,))
+
+    def lift_overlap(self, batch_id: str) -> list[dict]:
+        rows = self._rows(
+            "SELECT * FROM lift_overlap WHERE batch_id=? "
+            "ORDER BY sale_date, category, channel", (batch_id,))
+        for row in rows:
+            try:
+                row["promo_ids"] = json.loads(row["promo_ids"])
+            except (TypeError, ValueError):
+                row["promo_ids"] = []
+        return rows
+
+    def lift_channel_component(self, batch_id: str) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM lift_channel_component WHERE batch_id=? "
+            "ORDER BY promo_id, channel, component", (batch_id,))
+
+    def reconcile_checks(self, batch_id: str) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM reconcile_checks WHERE batch_id=? ORDER BY rowid", (batch_id,))
+
+    # ---------- 整版切换 ----------
+    def get_published(self, batch_id: str) -> dict | None:
+        with self.connect() as conn:
+            row = conn.execute("SELECT * FROM published WHERE batch_id=?",
+                               (batch_id,)).fetchone()
+        return dict(row) if row else None
+
+    def find_published_by_key(self, batch_key: str) -> dict | None:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM published WHERE batch_key=? AND status!='failed' "
+                "ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END, "
+                "published_at DESC LIMIT 1", (batch_key,)).fetchone()
+        return dict(row) if row else None
+
+    def active_published(self, dataset: str | None = None) -> dict | None:
+        with self.connect() as conn:
+            if dataset is None:
+                row = conn.execute(
+                    "SELECT * FROM published WHERE status='active' "
+                    "ORDER BY published_at DESC, rowid DESC LIMIT 1").fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT * FROM published WHERE status='active' AND dataset=? "
+                    "ORDER BY published_at DESC, rowid DESC LIMIT 1",
+                    (dataset,)).fetchone()
+        return dict(row) if row else None
+
+    def list_published(self, limit: int = 30) -> list[dict]:
+        return self._rows(
+            "SELECT * FROM published ORDER BY rowid DESC LIMIT ?", (limit,))
+
+    def publish_batch(self, record: dict) -> None:
+        """整版切换：一个事务内把旧 active 置 superseded，新批次置 active。
+
+        失败路径只写 failed 行，不动旧 active——调用方先跑对账，ok 才进本方法。
+        同 batch_key 的重试在 service 层拦截，不产生新行。
+        """
+        with self.connect() as conn:
+            if record["status"] == "active":
+                conn.execute(
+                    "UPDATE published SET status='superseded' "
+                    "WHERE status='active' AND dataset=?",
+                    (record["dataset"],))
+            conn.execute(
+                """INSERT INTO published (batch_id, batch_key, dataset, rule_version,
+                        status, previous_batch_id, checks_total, checks_failed,
+                        published_at, note)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(batch_id) DO UPDATE SET
+                     status=excluded.status, checks_total=excluded.checks_total,
+                     checks_failed=excluded.checks_failed,
+                     published_at=excluded.published_at, note=excluded.note""",
+                (record["batch_id"], record["batch_key"], record["dataset"],
+                 record["rule_version"], record["status"],
+                 record.get("previous_batch_id"), record["checks_total"],
+                 record["checks_failed"], record.get("published_at"),
+                 record.get("note", "")))
 
     def stages(self, batch_id: str) -> list[dict]:
         return self._rows(

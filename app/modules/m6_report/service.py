@@ -53,6 +53,21 @@ def reconcile(store, batch_id: str) -> list[dict]:
     lift = coerce.money(_dec(totals.get("lift_gmv", "0")))
     spread = coerce.money(_dec(totals.get("spread_total", "0")))
     rows.append(_money_line("分摊账", lift, spread, "增量合计 = 各渠道分摊合计"))
+
+    # 三分账与品类账：同品类重叠促销去重后的口径核对
+    own = coerce.money(_dec(totals.get("own_gmv", "0")))
+    cannibal = coerce.money(_dec(totals.get("cannibal_gmv", "0")))
+    residual = coerce.money(_dec(totals.get("residual_gmv", "0")))
+    rows.append(_money_line(
+        "三分账", lift, coerce.money(own + cannibal + residual),
+        "实测增量 = 自身增量 + 挤占 + 残差"))
+    rows.append(_money_line(
+        "挤占账", cannibal, Decimal("0.00"),
+        "挤占是品类内转移，净额必须为 0"))
+    category_lift = coerce.money(_dec(totals.get("category_lift_gmv", "0")))
+    rows.append(_money_line(
+        "品类账", category_lift, coerce.money(own + residual),
+        "品类共同增长 = Σ自身 + Σ残差，共同客流只计一次"))
     return rows
 
 
@@ -89,6 +104,10 @@ def export_rows(kind: str, store, batch_id: str) -> str:
         return csv_out.elastic_csv(store.elasticity(batch_id))
     if kind == "reconcile":
         return csv_out.reconcile_csv(reconcile(store, batch_id))
+    if kind == "decomp":
+        return csv_out.decomp_csv(store.lift_decomp(batch_id))
+    if kind == "category":
+        return csv_out.category_csv(store.lift_category(batch_id))
     return csv_out.lift_csv(store.lift(batch_id))
 
 

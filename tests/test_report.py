@@ -9,9 +9,13 @@ from app.modules.m6_report import csv_out, manifest_out, service as report_servi
 from fixtures import dataset as fx
 
 
+EXPECTED_ACCOUNTS = ["行账", "天数账", "促销账", "金额账", "分摊账",
+                     "三分账", "挤占账", "品类账"]
+
+
 def test_reconcile_four_accounts_are_balanced(settings, store, batch_id):
     rows = report_service.reconcile(store, batch_id)
-    assert [row["account"] for row in rows] == ["行账", "天数账", "促销账", "金额账", "分摊账"]
+    assert [row["account"] for row in rows] == EXPECTED_ACCOUNTS
     for row in rows:
         assert row["verdict"] == "平"
         assert row["ok"] is True
@@ -115,15 +119,15 @@ def test_manifest_json_serializes_decimals_without_float():
 
 
 def test_reconcile_stays_balanced_under_drop_mode(settings, store):
-    # 不变量：换一种 0 销量处理方式，五账仍然全部平
+    # 不变量：换一种 0 销量处理方式，八账仍然全部平
     from app.modules.m5_lift import service as lift_service
     result = lift_service.run(settings=settings, store=store, dataset="main",
                               zero_mode="drop")
     other = result["batch"]["batch_id"]
     assert result["replay"] is False
     rows = report_service.reconcile(store, other)
-    assert [row["account"] for row in rows] == ["行账", "天数账", "促销账", "金额账", "分摊账"]
-    assert [row["verdict"] for row in rows] == ["平"] * 5
+    assert [row["account"] for row in rows] == EXPECTED_ACCOUNTS
+    assert [row["verdict"] for row in rows] == ["平"] * len(EXPECTED_ACCOUNTS)
     payload = report_service.report_payload(store, other)
     assert payload["balanced"] is True
     assert payload["totals"]["coverage"] != ""

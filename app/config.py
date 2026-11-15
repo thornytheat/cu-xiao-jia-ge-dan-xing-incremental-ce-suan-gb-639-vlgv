@@ -18,7 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CHINA_TZ = dt.timezone(dt.timedelta(hours=8), "Asia/Shanghai")
 UTC = dt.timezone.utc
 
-RULE_VERSION = "pricelift/1.4.0"
+RULE_VERSION = "pricelift/1.5.0"
 MONEY_QUANT = Decimal("0.01")
 QTY_QUANT = Decimal("1")
 PRICE_QUANT = Decimal("0.0001")
@@ -110,6 +110,29 @@ CONTROL_MAP = {
     "MY-0012": "MY-0019",
     "MY-0021": "MY-0028",
 }
+
+# 商品 → 品类：同品类同渠道促销窗重叠的日期才构成「促销重叠客流」，跨品类不挤占
+CATEGORY_MAP = {
+    "MY-0012": "CAT-YOGURT",
+    "MY-0019": "CAT-YOGURT",
+    "MY-0021": "CAT-MILK",
+    "MY-0028": "CAT-MILK",
+    "MY-0034": "CAT-GIFT",
+    "MY-0045": "CAT-CHEESE",
+}
+CATEGORY_LABELS = {
+    "CAT-YOGURT": "酸奶",
+    "CAT-MILK": "鲜奶",
+    "CAT-GIFT": "礼盒",
+    "CAT-CHEESE": "奶酪",
+}
+# 三层对账金额容差（Decimal 最小刻度），金额全程 Decimal 时差额恒为 0
+RECONCILE_TOLERANCE = Decimal("0.01")
+# 切换发布状态
+PUBLISH_PENDING = "pending"
+PUBLISH_ACTIVE = "active"
+PUBLISH_FAILED = "failed"
+PUBLISH_SUPERSEDED = "superseded"
 
 DATASETS = {
     "main": {

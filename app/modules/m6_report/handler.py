@@ -9,7 +9,7 @@ from . import service
 
 router = APIRouter()
 
-KINDS = ("lift", "sales", "elastic", "reconcile")
+KINDS = ("lift", "decomp", "category", "sales", "elastic", "reconcile")
 
 
 def _batch_id(request: Request) -> str | None:

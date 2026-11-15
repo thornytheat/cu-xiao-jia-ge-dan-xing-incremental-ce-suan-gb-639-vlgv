@@ -1,9 +1,10 @@
 # 深度登记 pricelift（促销价格弹性与增量测算）
 
-- 规模：中型（7 个功能模块 / 7 个页面 / 80 个文件 / 90 条测试 / 18 条陷阱）
+- 规模：中型（7 个功能模块 / 7 个页面 / 86 个文件 / 100 条测试 / 21 条陷阱）
 - 核心规则一：**对数线性弹性**——`ln q = a + b·ln p` 用最小二乘估计，先对 x 与 y 双中心化再求比值（漏掉中心化斜率会变正）；0 销量默认按 `ln(q+0.5)` 统一平移，可切到剔除；输出斜率、标准误、t 值与 R²，`|t| < 1.96` 记为不显著。
 - 核心规则二：**增量测算与区间**——基线 = 促销前 14 天日均 × 促销有效天数 × 对照组同期倍数；增量 = 实际 − 基线（Decimal，2 位）；区间宽度用弹性斜率的 delta 法给出，斜率标准误为 0 时区间收成一点。
-- 核心规则三：**实验设计**——统计单位是「一天一条日销售额」；`k = z(1−α/2) + z(功效)`，`最小实验期 n = (A² + sqrt(A⁴ + 4·A²·m))/2`（`A = k·cv/目标效应`，`m = 14` 天基线窗）；方差用 HC1 稳健标准误与朴素标准误的比值放大；缺日必须按三种补法各算一遍，结论不一致就标出来。
+- 核心规则三：**同品类重叠三分与整版切换**——同品类同渠道重叠日按价格变化（自身增量）、促销重叠（挤占，按观测偏差匹配、品类净额为 0）、对照走势之外的未解释部分（残差，不摊回商品）三分；商品/渠道/品类三层对账全平才整版切换，失败保留旧版，同 batch_key 重试不增版本。
+- 核心规则四：**实验设计**——统计单位是「一天一条日销售额」；`k = z(1−α/2) + z(功效)`，`最小实验期 n = (A² + sqrt(A⁴ + 4·A²·m))/2`（`A = k·cv/目标效应`，`m = 14` 天基线窗）；方差用 HC1 稳健标准误与朴素标准误的比值放大；缺日必须按三种补法各算一遍，结论不一致就标出来。
 - 使用者与工作流：牧原乳品区域销售部 6 人，每周十余个促销，增量靠经验拍。现在导入日销与促销日历即可得到「弹性 + 增量 + 区间 + 五账」，再按下一期目标效应算实验期、对照与预期区间，每条结论都能追到行号与原因码。
 
 ## 功能模块
@@ -14,7 +15,7 @@
 | M2 归价 | 查看列契约、换算规则、促销版本与生效窗口，试算单条价格 | GET /api/contract、POST /api/price/preview、页面 /contract | `app/modules/m2_price/contract.py` `app/modules/m2_price/coerce.py` `app/modules/m2_price/versions.py` | `tests/test_price.py` |
 | M3 质量隔离 | 看严重度分布与隔离行，导出隔离 CSV | GET /api/quarantine、GET /api/quarantine.csv、页面 /quarantine | `app/modules/m3_quality/rules.py` `app/modules/m3_quality/quarantine.py` `app/modules/m3_quality/metrics.py` | `tests/test_quality.py` |
 | M4 弹性 | 看每个商品与每个渠道的弹性、标准误、R²、显著性 | GET /api/elasticity、页面 /elasticity | `app/modules/m4_elastic/prepare.py` `app/modules/m4_elastic/ols.py` `app/modules/m4_elastic/fit.py` | `tests/test_elasticity.py` |
-| M5 增量与批次 | 触发增量测算、看区间与渠道分摊、查批次历史与幂等重跑 | POST /api/lift、GET /api/batches、页面 /lift | `app/modules/m5_lift/baseline.py` `app/modules/m5_lift/ci.py` `app/modules/m5_lift/spread.py` `app/modules/m5_lift/service.py` | `tests/test_lift.py` |
+| M5 增量与批次 | 触发增量测算、看三分分解/品类口径/三层对账与渠道分摊、查批次历史与幂等重跑 | POST /api/lift、GET /api/batches、页面 /lift | `app/modules/m5_lift/baseline.py` `app/modules/m5_lift/ci.py` `app/modules/m5_lift/spread.py` `app/modules/m5_lift/decompose.py` `app/modules/m5_lift/reconcile.py` `app/modules/m5_lift/cutover.py` `app/modules/m5_lift/service.py` | `tests/test_lift.py` `tests/test_decompose.py` |
 | M6 报告导出 | 核对五账，导出增量/弹性/五账/运行清单 | GET /api/report、GET /api/export、页面 /report | `app/modules/m6_report/csv_out.py` `app/modules/m6_report/manifest_out.py` `app/modules/m6_report/service.py` | `tests/test_report.py` |
 | M7 实验设计 | 给目标效应与功效，算最小实验期、预算下可识别效应、对照建议与预期区间 | POST /api/design、GET /api/design、页面 /design | `app/modules/m7_design/power.py` `app/modules/m7_design/robust.py` `app/modules/m7_design/impute.py` `app/modules/m7_design/control.py` `app/modules/m7_design/service.py` | `tests/test_design.py` `tests/test_design_api.py` |
 
@@ -42,6 +43,9 @@
 | TRAP-25 | 两版活动价的区间重叠 | 取到哪版看运气，重叠日重复计天数 | 重叠天数显式标出（`Q_PROMO_OVERLAP`），按版本号大者生效 | `app/modules/m2_price/versions.py` | `tests/test_price.py::test_version_overlap_marked_and_highest_wins` |
 | TRAP-27 | 促销期内缺 1-2 天，缺日按 0 补 | 日均被压低、波动被放大，预期区间从「不含 0」翻成「含 0」 | 三种补法（丢弃 / 按 0 / 按均值）各算一遍，区间含 0 或所需天数极差超 10% 就记 `D_IMPUTE_SENSITIVE` 并逐行给出数值 | `app/modules/m7_design/impute.py` | `tests/test_design.py::test_impute_sensitivity_flips_on_light_missing` |
 | TRAP-28 | 候选对照在实验期内自己也在促销 | 同期倍数把它自己的促销算进基线，增量被抵掉 | 先按实验期（左闭右开）判重叠，有重叠直接标 `排除`（`D_CONTROL_OVERLAP`），只从「可用」里选对照 | `app/modules/m7_design/control.py` | `tests/test_design.py::test_control_excludes_candidate_with_promo_in_experiment_window` |
+| TRAP-29 | 同品类两促销同期，各自弹性都把重叠客流算成自己的增量 | 品类汇总重复计入共同客流，口径被抬高 | 重叠日赢家/输家未解释偏差按观测缺口匹配为挤占，品类净额恒 0；匹配不掉的净缺口留品类残差，禁止固定比例摊回 | `app/modules/m5_lift/decompose.py` | `tests/test_decompose.py::test_cannibalization_matches_observed_gap_and_nets_zero` `tests/test_decompose.py::test_residual_never_allocated_back_by_fixed_ratio` |
+| TRAP-30 | 各促销挤占金额分别量化到 0.01 元 | 销量净额为 0，金额净额却差几分钱，品类账永远不平 | 分级舍入差在品类内并入残差侧调平，不改任何商品实测增量，挤占金额净额恒为 0 | `app/modules/m5_lift/decompose.py` | `tests/test_decompose.py::test_three_layer_reconcile_all_balances_and_publishes` |
+| TRAP-31 | 新版算完直接覆盖线上口径 | 对账不平也切换，旧版被污染无法回退 | 三层对账先于写库出计划，平账才同事务置 active/旧版 superseded；不平只落 failed，旧 active 保留 | `app/modules/m5_lift/cutover.py` `app/store.py` | `tests/test_decompose.py::test_failed_switch_keeps_old_version` `tests/test_decompose.py::test_retry_same_batch_key_adds_no_version` |
 
 ## 对账规则
 
@@ -50,9 +54,13 @@
 - 金额账：实际销售额 = 基线销售额 + 增量销售额（Decimal，2 位）
 - 促销账：促销总数 4 = 已测算 2 + 被阻断 1 + 未生效 1
 - 分摊账：增量合计 = 各渠道分摊合计（最大余额法补齐尾差）
+- 三分账：实测增量 = 自身增量 + 挤占 + 残差（逐促销，金额与销量两套）
+- 挤占账：挤占品类净额 = 0（内部转移，不进品类共同增长）
+- 品类账：品类共同增长 = Σ自身 + Σ残差，重复计入额恒为 0
 
-五账在 `GET /api/report`、`/report` 页面与 `/api/export?kind=reconcile` 中显示；
-任一账差额非 0 时结论列写「不平」，页面上的五账结论也随之变红。
+八账在 `GET /api/report`、`/report` 页面与 `/api/export?kind=reconcile` 中显示；
+任一账差额非 0 时结论列写「不平」。三层对账（商品/渠道/品类）全部平账才整版切换，
+不平则新批次落 `published.status='failed'` 并记 `A_RECONCILE_FAILED`，旧版保持生效。
 
 ## 设计账
 
@@ -70,7 +78,8 @@
 
 ## 已知不覆盖
 
-- 只做单商品对单价格的自身弹性，不含交叉价格弹性与促销互相挤占（同期多个 SKU 同时促销时会高估各自增量）。
+- 不估计交叉价格弹性系数：重叠客流用观测偏差匹配识别挤占，不做跨 SKU 的弹性回归；
+  品类映射在 `app/config.py` 的 `CATEGORY_MAP` 手工维护，未登记商品按独立品类处理。
 - 对照组的品类映射写在 `app/config.py` 的 `CONTROL_MAP` 里，只有 2 组映射；没有映射的商品在增量阶段直接阻断（`A_NO_CONTROL`），设计阶段改用同渠道候选打分，不做品类自动匹配。
 - 弹性估计是线性对数模型，不做固定效应、季节虚拟变量或面板估计；45 天窗口内以星期因子自然波动体现。
 - 实验设计的功效按正态近似算（`z` 分位 + `Φ`），不按 t 分布做小样本校正；也不做序贯检验与中途看数。

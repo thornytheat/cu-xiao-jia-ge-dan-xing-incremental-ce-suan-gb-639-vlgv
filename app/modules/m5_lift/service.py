@@ -18,7 +18,7 @@ from ..m2_price import service as price_service
 from ..m3_quality import quarantine as quarantine_mod
 from ..m3_quality import service as quality_service
 from ..m4_elastic import service as elastic_service
-from . import baseline, ci, spread
+from . import baseline, ci, cutover, decompose, spread
 
 REPLAY_NOTE = "同键批次已存在，复用结果"
 
@@ -164,12 +164,14 @@ def run(settings: config.Settings, store: Store, dataset: str = "main",
 
     existing = store.find_done_by_key(batch_key)
     if existing is not None:
+        published = store.find_published_by_key(batch_key)
         return {
             "batch": existing,
             "replay": True,
             "note": REPLAY_NOTE,
             "batch_key": batch_key,
             "counters": store.totals(existing["batch_id"]),
+            "publish": published,
         }
 
     timings: list[tuple[str, int, int, int, float]] = []
@@ -201,23 +203,54 @@ def run(settings: config.Settings, store: Store, dataset: str = "main",
 
     mark = time.perf_counter()
     lift = compute_lift(assessed, elastic["rows"])
-    lift_q = len(lift["quarantine"])
+    # 同品类促销重叠三分：自身增量 / 挤占 / 无法归属残差
+    decomp = decompose.build(assessed["sales"], assessed["windows"],
+                             lift["rows"], elastic["rows"])
+    channel_components: list[dict] = []
+    windows_by_promo = _group_windows(assessed["windows"])
+    for promo in decomp["promos"]:
+        dates = promo_dates_of(windows_by_promo[promo.promo_id])
+        channel_gmv = baseline.channel_totals(assessed["sales"], dates, promo.sku)
+        channel_components.extend(cutover.allocate_components(promo, channel_gmv))
+    overlap_q = cutover.overlap_quarantine(decomp)
+    lift_q = len(lift["quarantine"]) + len(overlap_q)
     timings.append(("lift", len(assessed["accounts"]), len(lift["rows"]),
                     lift_q, time.perf_counter() - mark))
 
-    extra = quarantine_mod.enrich(lift["quarantine"] + elastic["quarantine"])
+    extra = quarantine_mod.enrich(
+        lift["quarantine"] + elastic["quarantine"] + overlap_q)
     all_quarantine = assessed["quarantine"] + extra
     counts = quarantine_mod.level_counts(all_quarantine)
 
     mark = time.perf_counter()
-    totals = build_totals(loaded, assessed, lift, all_quarantine, counts)
-    timings.append(("report", len(lift["rows"]), len(all_quarantine), 0,
-                    time.perf_counter() - mark))
+    totals = build_totals(loaded, assessed, lift, all_quarantine, counts,
+                          decomp, channel_components)
 
     elapsed_ms = int((time.perf_counter() - total_start) * 1000)
     finished_at = now_iso()
     run_id = manifest.new_run_id()
     batch_id = f"B{dt.datetime.now(config.UTC).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
+
+    # 三层对账在写库前完成：平账才允许整版切换，不平则保留旧版
+    publish = cutover.switch_plan(
+        batch_id=batch_id, batch_key=batch_key, dataset=dataset,
+        rule_version=settings.rule_version, decomp=decomp, lift_rows=lift["rows"],
+        channel_components=channel_components,
+        previous=store.active_published(dataset))
+    if not publish["reconcile"]["ok"]:
+        all_quarantine.append({
+            "code": "A_RECONCILE_FAILED", "stage": "lift", "level": reasons.ERROR,
+            "source": "daily_sales", "line_no": None, "field": "对账",
+            "raw_value": str(len(publish["reconcile"]["failed"])),
+            "detail": "；".join(item["account"] for item in
+                                publish["reconcile"]["failed"]),
+        })
+        counts = quarantine_mod.level_counts(all_quarantine)
+        totals = build_totals(loaded, assessed, lift, all_quarantine, counts,
+                              decomp, channel_components)
+    timings.append(("report", len(lift["rows"]), len(all_quarantine), 0,
+                    time.perf_counter() - mark))
+
     stages = [_stage(*item) for item in timings]
     manifest_doc = manifest.build(
         run_id=run_id, batch_id=batch_id, batch_key=batch_key, settings=settings,
@@ -259,6 +292,11 @@ def run(settings: config.Settings, store: Store, dataset: str = "main",
         "elasticity": elastic["rows"],
         "lift": lift["rows"],
         "spread": lift["spread"],
+        "lift_decomp": decompose.as_promo_rows(decomp),
+        "lift_category": decomp["category_rows"],
+        "lift_overlap": decomp["overlap_rows"],
+        "lift_channel_component": channel_components,
+        "reconcile_checks": publish["reconcile"]["checks"],
         "stages": stages,
         "totals": totals,
         "manifest": manifest_doc,
@@ -270,6 +308,9 @@ def run(settings: config.Settings, store: Store, dataset: str = "main",
         "params": {"zero_mode": mode}, "note": loaded["state_label"],
     })
     store.write_batch(batch_id, payload)
+
+    # 整版切换：平账则顶替旧版；不平只落 failed 行，旧 active 保留
+    commit = cutover.commit_switch(store, publish)
     return {
         "batch": store.get_batch(batch_id),
         "replay": False,
@@ -278,10 +319,13 @@ def run(settings: config.Settings, store: Store, dataset: str = "main",
         "counters": totals,
         "state": loaded["state"],
         "state_label": loaded["state_label"],
+        "publish": store.get_published(batch_id),
+        "switch": commit,
     }
 
 
-def build_totals(loaded, assessed, lift, all_quarantine, counts) -> dict:
+def build_totals(loaded, assessed, lift, all_quarantine, counts,
+                 decomp=None, channel_components=None) -> dict:
     total_records = loaded["rows"]["sales"]
     rows_ok = len(assessed["sales"])
     promos_total = len(assessed["promo_versions"])
@@ -292,6 +336,22 @@ def build_totals(loaded, assessed, lift, all_quarantine, counts) -> dict:
     actual_gmv = sum((Decimal(r["actual_gmv"]) for r in lift["rows"]), Decimal("0"))
     base_gmv = sum((Decimal(r["base_gmv"]) for r in lift["rows"]), Decimal("0"))
     lift_gmv = sum((Decimal(r["lift_gmv"]) for r in lift["rows"]), Decimal("0"))
+    if decomp is not None:
+        own_gmv = sum((p.own_gmv for p in decomp["promos"]), Decimal("0"))
+        cannibal_gmv = sum((p.cannibal_gmv for p in decomp["promos"]), Decimal("0"))
+        residual_gmv = sum((p.residual_gmv for p in decomp["promos"]), Decimal("0"))
+        category_lift_gmv = sum(
+            (Decimal(c["category_lift_gmv"]) for c in decomp["category_rows"]),
+            Decimal("0"))
+        double_count_gmv = sum(
+            (Decimal(c["double_count_gmv"]) for c in decomp["category_rows"]),
+            Decimal("0"))
+        overlap_day_count = sum(p.overlap_days for p in decomp["promos"])
+    else:
+        own_gmv = cannibal_gmv = residual_gmv = Decimal("0")
+        category_lift_gmv = lift_gmv
+        double_count_gmv = Decimal("0")
+        overlap_day_count = 0
     return {
         "records_total": total_records,
         "rows_ok": rows_ok,
@@ -308,6 +368,12 @@ def build_totals(loaded, assessed, lift, all_quarantine, counts) -> dict:
         "actual_gmv": str(actual_gmv),
         "base_gmv": str(base_gmv),
         "lift_gmv": str(lift_gmv),
+        "own_gmv": str(own_gmv),
+        "cannibal_gmv": str(cannibal_gmv),
+        "residual_gmv": str(residual_gmv),
+        "category_lift_gmv": str(category_lift_gmv),
+        "double_count_gmv": str(double_count_gmv),
+        "overlap_day_count": overlap_day_count,
         "actual_qty": str(sum((Decimal(r["actual_qty"]) for r in lift["rows"]),
                               Decimal("0"))),
         "base_qty": str(sum((Decimal(r["base_qty"]) for r in lift["rows"]),

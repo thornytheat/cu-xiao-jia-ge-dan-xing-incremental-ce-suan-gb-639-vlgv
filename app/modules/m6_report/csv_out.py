@@ -24,6 +24,13 @@ ELASTIC_HEADER = ("范围", "分组", "样本数", "0 销量条数", "截距", "
 
 RECONCILE_HEADER = ("账目", "左值", "右值", "差额", "结论", "说明")
 
+DECOMP_HEADER = ("促销编号", "商品编码", "渠道", "品类", "促销天数", "重叠天数",
+                 "自身增量销量", "挤占销量", "残差销量", "实测增量销量",
+                 "自身增量金额", "挤占金额", "残差金额", "实测增量金额")
+
+CATEGORY_HEADER = ("品类", "促销数", "自身增量", "挤占净额", "残差",
+                   "逐户合计", "品类共同增长", "重复计入额")
+
 
 def _write(header, rows) -> str:
     buf = io.StringIO()
@@ -79,8 +86,34 @@ def reconcile_csv(rows) -> str:
     return _write(RECONCILE_HEADER, body)
 
 
+def decomp_csv(rows) -> str:
+    body = []
+    for row in rows:
+        body.append((
+            row["promo_id"], row["sku"], row["channel"], row["category_label"],
+            row["days_total"], row["overlap_days"], row["own_qty"],
+            row["cannibal_qty"], row["residual_qty"], row["lift_qty"],
+            row["own_gmv"], row["cannibal_gmv"], row["residual_gmv"],
+            row["lift_gmv"],
+        ))
+    return _write(DECOMP_HEADER, body)
+
+
+def category_csv(rows) -> str:
+    body = []
+    for row in rows:
+        body.append((
+            row["category_label"], row["promo_count"], row["own_gmv"],
+            row["cannibal_gmv"], row["residual_gmv"], row["lift_gmv"],
+            row["category_lift_gmv"], row["double_count_gmv"],
+        ))
+    return _write(CATEGORY_HEADER, body)
+
+
 KINDS = {
     "lift": ("增量明细", lift_csv),
+    "decomp": ("重叠增量三分", decomp_csv),
+    "category": ("品类口径", category_csv),
     "sales": ("入模日销", sales_csv),
     "elastic": ("弹性结果", elastic_csv),
     "reconcile": ("账目核对", reconcile_csv),

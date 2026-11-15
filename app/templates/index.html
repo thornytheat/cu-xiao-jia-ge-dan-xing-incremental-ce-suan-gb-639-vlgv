@@ -30,10 +30,14 @@
       <dd class="verdict-value">{{ totals.days_valid or 0 }}<small>/ {{ totals.days_expected or 0 }}</small></dd>
     </div>
     <div class="verdict-cell">
-      <dt class="verdict-key">增量合计</dt>
+      <dt class="verdict-key">增量合计（逐户口径）</dt>
       <dd class="verdict-value">{{ totals.lift_gmv | money }}<small>{{ money_unit }}</small></dd>
     </div>
-    <p class="verdict-note">质量等级 {{ totals.grade or "—" }} · 严重 {{ totals.quarantine_error or 0 }} 条 · 警告 {{ totals.quarantine_warn or 0 }} 条</p>
+    <div class="verdict-cell">
+      <dt class="verdict-key">品类共同增长（去重）</dt>
+      <dd class="verdict-value">{{ totals.category_lift_gmv | money }}<small>{{ money_unit }}</small></dd>
+    </div>
+    <p class="verdict-note">质量等级 {{ totals.grade or "—" }} · 严重 {{ totals.quarantine_error or 0 }} 条 · 警告 {{ totals.quarantine_warn or 0 }} 条 · 挤占净额 {{ totals.cannibal_gmv | money }} 元</p>
   </dl>
 </section>
 

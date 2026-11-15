@@ -146,6 +146,30 @@ REASONS = {
     "A_SPREAD_REMAINDER": _r(
         "A_SPREAD_REMAINDER", INFO, "lift",
         "渠道分摊出现尾差，已按最大余额法补齐", "分摊合计恒等于总额"),
+    "A_OVERLAP_CLUSTER": _r(
+        "A_OVERLAP_CLUSTER", WARN, "lift",
+        "同品类同渠道多个促销在该日重叠，各自弹性增量含重复客流",
+        "重叠日按自身增量/挤占/残差三分，品类口径只计一次共同增长"),
+    "A_CANNIBALIZED": _r(
+        "A_CANNIBALIZED", INFO, "lift",
+        "重叠日实际低于自身价格解释量，缺口已按观测缺口匹配为被挤占",
+        "挤占是品类内转移，品类汇总净额为 0，不计入品类共同增长"),
+    "A_RESIDUAL_UNATTRIBUTED": _r(
+        "A_RESIDUAL_UNATTRIBUTED", WARN, "lift",
+        "重叠日净缺口无法在商品间匹配，保留在品类残差，不摊回商品",
+        "禁止用固定比例摊回；残差只在品类层挂账并保留来源促销"),
+    "A_RECONCILE_FAILED": _r(
+        "A_RECONCILE_FAILED", ERROR, "lift",
+        "三层对账（商品/渠道/品类）存在不平账目，整版切换已中止",
+        "旧版保持生效；修复后按同一 batch_key 重试，不新增版本"),
+    "A_PUBLISH_ACTIVE": _r(
+        "A_PUBLISH_ACTIVE", INFO, "lift",
+        "三层对账全部平账，新版已整版切换为生效版",
+        "同 batch_key 重试复用该版，不产生新版本"),
+    "A_PUBLISH_KEPT_OLD": _r(
+        "A_PUBLISH_KEPT_OLD", ERROR, "lift",
+        "新版切换失败，已保留旧版生效",
+        "失败批次不激活；同键重试通过后才会替换"),
     # ---- M6 报告 ----
     "R_NO_BATCH": _r(
         "R_NO_BATCH", WARN, "report",
